@@ -3,9 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { useMe } from "@/features/auth/queries"
 import { toast } from "@/lib/toast"
-import { ROUTES } from "@/lib/routes"
+import { ROUTES, routesMap } from "@/lib/routes"
 
-const PUBLIC_ROUTES = [ROUTES.LOGIN, ROUTES.REGISTER]
+const PUBLIC_ROUTES = routesMap
+  .filter((route) => !route.authRequired)
+  .map((route) => route.path)
+
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUser, logout, isLoading, setLoading } = useAuthStore()

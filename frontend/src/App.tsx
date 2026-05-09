@@ -1,29 +1,37 @@
-import "./App.css";
-import LoginPage from "./features/login";
-import SignupPage from "./features/signup";
+import React from "react"
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { Toaster } from "sonner"
 import { AuthProvider } from "./providers/auth-provider"
-import { ROUTES } from "./lib/routes"
+import { routesMap } from "./lib/routes"
+import { MainLayout } from "./components/layouts/MainLayout"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-right" richColors closeButton />
-      <AuthProvider>
-        <Routes>
-          <Route path={ROUTES.HOME} element={<h2>Home page</h2>} />
+      <TooltipProvider>
+        <Toaster position="top-right" richColors closeButton />
+        <AuthProvider>
+          <Routes>
+            {routesMap.map((route) => {
+              const Component = route.component
+              const Layout = route.isLayoutEnabled ? MainLayout : React.Fragment
 
-          <Route
-            path={ROUTES.LOGIN}
-            element={<LoginPage />}
-          />
-          <Route
-            path={ROUTES.REGISTER}
-            element={<SignupPage />}
-          />
-        </Routes>
-      </AuthProvider>
+              return (
+                <Route
+                  key={route.path}
+                  path={route.path}
+                  element={
+                    <Layout>
+                      <Component />
+                    </Layout>
+                  }
+                />
+              )
+            })}
+          </Routes>
+        </AuthProvider>
+      </TooltipProvider>
     </BrowserRouter>
   )
 }
