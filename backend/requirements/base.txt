@@ -1,0 +1,11 @@
+Django
+djangorestframework
+psycopg2-binary
+django-environ
+django-cors-headers
+djangorestframework-simplejwt
+drf-spectacular
+django-filter
+gunicorn
+google-auth
+requests

@@ -1,0 +1,29 @@
+services:
+  web:
+    build: .
+    container_name: splitwise_web
+    command: sh /app/entrypoint.sh
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - .env
+
+  db:
+    image: postgres:16
+    container_name: splitwise_db
+    restart: always
+    environment:
+      POSTGRES_DB: splitwise_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
