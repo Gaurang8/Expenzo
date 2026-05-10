@@ -4,62 +4,114 @@ import { Search } from "lucide-react"
 import { useGroups } from "./queries"
 import { CreateGroupDialog } from "./CreateGroupDialog"
 import { format } from "date-fns"
+import { useNavigate, useParams } from "react-router-dom"
+import { cn } from "@/lib/utils"
+import GroupDetail from "./GroupDetail"
+import { UserInvitations } from "./UserInvitations"
+import type { Group } from "./types"
 
 const GroupIndex = () => {
     const { data: groupsRes, isLoading } = useGroups()
     const groups = groupsRes?.data || []
+    const navigate = useNavigate()
+    const { groupId } = useParams()
 
     return (
-        <div className="flex h-screen">
-            <div className="w-[22vw] h-screen border-r border-slate-200 bg-white">
-                <div className="h-20 border-b flex items-center justify-center px-4 relative">
+        <div className="flex h-screen bg-white">
+            {/* Group List Sidebar */}
+            <div className="w-[22vw] min-w-[300px] h-screen border-r border-slate-200 bg-white flex flex-col">
+                <div className="h-20 border-b border-slate-200 flex items-center px-6 relative shrink-0">
+                    <Search className="absolute left-10 text-slate-500 size-4" />
                     <Input
                         placeholder="Search group"
-                        className="bg-slate-100 h-12 rounded-full border-none focus-visible:border-none focus-visible:ring-0 pl-10"
+                        className="bg-slate-100 h-10 rounded-full border-none focus-visible:ring-1 focus-visible:ring-indigo-100 pl-11 text-sm placeholder:text-slate-400"
                     />
-                    <Search className="absolute left-7 text-slate-600 size-5" />
                 </div>
-                <div className="w-full h-26 border-b flex items-center justify-center p-4">
+
+                <div className="px-6 py-6 shrink-0">
                     <CreateGroupDialog />
                 </div>
-                <div className="overflow-y-auto h-[calc(100vh-160px)]">
+
+                <UserInvitations />
+
+                <div className="overflow-y-auto flex-1 custom-scrollbar">
                     {isLoading ? (
-                        <div className="p-4 text-center text-slate-500">Loading groups...</div>
+                        <div className="p-8 text-center">
+                            <div className="animate-spin size-6 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                            <p className="text-sm text-slate-400">Loading groups...</p>
+                        </div>
                     ) : groups.length === 0 ? (
-                        <div className="p-4 text-center text-slate-500">No groups found.</div>
+                        <div className="p-8 text-center text-slate-400">
+                            <p className="text-sm">No groups found.</p>
+                        </div>
                     ) : (
-                        groups.map((group) => (
-                            <div key={group.id} className="flex items-center justify-between border-b px-4 py-4 hover:bg-slate-50 cursor-pointer">
-                                <div className="flex items-center">
-                                    <Avatar>
-                                        <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${group.name}&backgroundColor=f4511e`} />
-                                        <AvatarFallback>{group.name.charAt(0).toUpperCase()}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="ml-3">
-                                        <div className="text-sm font-semibold">{group.name}</div>
-                                        <div className="text-xs font-medium text-slate-500 mt-0.5">
-                                            Last Updated: {format(new Date(group.created_at), "MMM d, yyyy")}
+                        <div className="space-y-0.5 px-3">
+                            {groups.map((group: Group) => {
+                                const isActive = groupId === group.id.toString()
+                                return (
+                                    <div
+                                        key={group.id}
+                                        onClick={() => navigate(`/groups/${group.id}`)}
+                                        className={cn(
+                                            "flex items-center justify-between px-4 py-4 rounded-2xl cursor-pointer transition-all duration-200 group",
+                                            isActive
+                                                ? "bg-indigo-50/50 shadow-sm shadow-indigo-100/50"
+                                                : "hover:bg-slate-50"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
+                                                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${group.name}&backgroundColor=f4511e`} />
+                                                <AvatarFallback className="bg-indigo-100 text-indigo-700 font-bold">{group.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0">
+                                                <div className={cn(
+                                                    "text-[15px] font-bold truncate",
+                                                    isActive ? "text-indigo-900" : "text-slate-700"
+                                                )}>
+                                                    {group.name}
+                                                </div>
+                                                <div className="text-[11px] font-medium text-slate-400 mt-0.5">
+                                                    Last active: {format(new Date(group.created_at), "MMM d")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <div className={cn(
+                                                "text-[14px] font-bold",
+                                                group.id % 2 === 0 ? "text-rose-500" : "text-emerald-500"
+                                            )}>
+                                                {group.id % 2 === 0 ? `- ₹${200 + group.id * 10}` : `+ ₹${150 + group.id * 5}`}
+                                            </div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
+                                                {group.id % 2 === 0 ? "you owe" : "are owed"}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="text-sm font-medium flex flex-col items-end">
-                                    <div className="text-base text-destructive">
-                                        - 200
-                                    </div>
-                                    <div className="text-xs font-medium text-slate-500 italic">
-                                        you owe
-                                    </div>
-                                </div>
-                            </div>
-                        ))
+                                )
+                            })}
+                        </div>
                     )}
                 </div>
             </div>
-            <div className="flex-1 h-screen border-l border-slate-200 bg-slate-50 flex items-center justify-center">
-                <div className="text-center text-slate-500">
-                    <Search className="size-12 mx-auto mb-4 opacity-20" />
-                    <p>Select a group to see details</p>
-                </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 h-screen overflow-hidden bg-slate-50/30">
+                {groupId ? (
+                    <GroupDetail />
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center">
+                        <div className="bg-white p-8 rounded-3xl shadow-xl shadow-slate-100/50 border border-slate-100 text-center max-w-sm">
+                            <div className="bg-indigo-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                                <Search className="size-8 text-indigo-500 opacity-40" />
+                            </div>
+                            <h2 className="text-xl font-bold text-slate-800 mb-2">Select a group</h2>
+                            <p className="text-slate-500 text-sm leading-relaxed">
+                                Choose a group from the list on the left to see expenses and balances.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

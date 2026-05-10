@@ -7,6 +7,7 @@ export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
   REGISTER: "/register",
+  GROUP_DETAIL: "/groups/:groupId",
 } as const
 
 export type RouteKeys = keyof typeof ROUTES
@@ -41,5 +42,11 @@ export const routesMap: RouteConfig[] = [
     authRequired: false,
     isLayoutEnabled: false,
     label: "Register",
+  },
+  {
+    path: ROUTES.GROUP_DETAIL,
+    component: Group,
+    authRequired: true,
+    isLayoutEnabled: true,
   },
 ]
