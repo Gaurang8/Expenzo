@@ -3,6 +3,7 @@ from rest_framework import serializers
 from .models import (
     Group,
     GroupMember,
+    GroupInvitation
 )
 
 
@@ -40,3 +41,25 @@ class GroupMemberSerializer(serializers.ModelSerializer):
             "role",
             "joined_at",
         )
+
+class GroupInvitationSerializer(
+    serializers.ModelSerializer
+):
+    group_name = serializers.CharField(source="group.name", read_only=True)
+
+    class Meta:
+        model = GroupInvitation
+
+        fields = (
+            "id",
+            "group",
+            "group_name",
+            "email",
+            "status",
+            "created_at",
+        )
+
+class InviteMemberSerializer(
+    serializers.Serializer
+):
+    email = serializers.EmailField()
