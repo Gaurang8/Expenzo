@@ -17,6 +17,7 @@ export function useGroupMembers(groupId: string | undefined) {
     queryKey: ["groups", groupId, "members"],
     queryFn: () => api.get<GroupMember[]>(`/groups/${groupId}/members/`),
     enabled: !!groupId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
@@ -26,6 +27,7 @@ export function useGroupInvitations(groupId: string | undefined) {
     queryKey: ["groups", groupId, "invitations"],
     queryFn: () => api.get<GroupInvitation[]>(`/groups/${groupId}/invitations/`),
     enabled: !!groupId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 

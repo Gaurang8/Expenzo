@@ -9,6 +9,9 @@ from .models import (
 
 from .selectors import (
     is_group_member,
+    get_group_member,
+    is_admin_or_owner,
+    is_owner,
 )
 
 from .enums import (
@@ -62,20 +65,26 @@ def invite_member(
             "User is already a group member"
         )
 
-    if GroupInvitation.objects.filter(
+    invitation = GroupInvitation.objects.filter(
         group=group,
         email=email,
-        status=InvitationStatus.PENDING,
-    ).exists():
-        raise ValueError(
-            "Pending invitation already exists"
-        )
+    ).first()
 
-    invitation = GroupInvitation.objects.create(
-        group=group,
-        invited_by=invited_by,
-        email=email,
-    )
+    if invitation:
+        if invitation.status == InvitationStatus.PENDING:
+            raise ValueError(
+                "Pending invitation already exists"
+            )
+        
+        invitation.status = InvitationStatus.PENDING
+        invitation.invited_by = invited_by
+        invitation.save()
+    else:
+        invitation = GroupInvitation.objects.create(
+            group=group,
+            invited_by=invited_by,
+            email=email,
+        )
 
     return invitation
 
@@ -120,3 +129,145 @@ def reject_invitation(invitation):
     invitation.save()
 
     return invitation
+
+@transaction.atomic
+def remove_group_member(
+    *,
+    actor,
+    member,
+):
+    actor_membership = get_group_member(
+        group=member.group,
+        user=actor,
+    )
+
+    if not actor_membership:
+        raise ValueError(
+            "You are not a group member"
+        )
+
+    if not is_admin_or_owner(
+        actor_membership
+    ):
+        raise ValueError(
+            "Permission denied"
+        )
+
+    if is_owner(member):
+        raise ValueError(
+            "Owner cannot be removed"
+        )
+
+    if actor == member.user:
+        raise ValueError(
+            "Use leave group instead"
+        )
+
+    member.delete()
+
+@transaction.atomic
+def leave_group(
+    *,
+    group,
+    user,
+):
+    membership = get_group_member(
+        group=group,
+        user=user,
+    )
+
+    if not membership:
+        raise ValueError(
+            "You are not a member"
+        )
+
+    if is_owner(membership):
+        owner_count = GroupMember.objects.filter(
+            group=group,
+            role=GroupRole.OWNER,
+        ).count()
+
+        if owner_count <= 1:
+            raise ValueError(
+                "Transfer ownership before leaving"
+            )
+
+    membership.delete()
+
+@transaction.atomic
+def transfer_ownership(
+    *,
+    group,
+    current_owner,
+    target_member,
+):
+    current_owner_membership = (
+        get_group_member(
+            group=group,
+            user=current_owner,
+        )
+    )
+
+    if not current_owner_membership:
+        raise ValueError(
+            "Not group member"
+        )
+
+    if not is_owner(
+        current_owner_membership
+    ):
+        raise ValueError(
+            "Only owner can transfer ownership"
+        )
+
+    target_membership = get_group_member(
+        group=group,
+        user=target_member,
+    )
+
+    if not target_membership:
+        raise ValueError(
+            "Target user not in group"
+        )
+
+    current_owner_membership.role = (
+        GroupRole.ADMIN
+    )
+
+    target_membership.role = (
+        GroupRole.OWNER
+    )
+
+    current_owner_membership.save()
+    target_membership.save()
+
+def update_member_role(
+    *,
+    actor,
+    member,
+    role,
+):
+    actor_membership = get_group_member(
+        group=member.group,
+        user=actor,
+    )
+
+    if not actor_membership:
+        raise ValueError(
+            "Not group member"
+        )
+
+    if not is_owner(actor_membership):
+        raise ValueError(
+            "Only owner can update roles"
+        )
+
+    if is_owner(member):
+        raise ValueError(
+            "Cannot modify owner role"
+        )
+
+    member.role = role
+    member.save()
+
+    return member

@@ -1,5 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework import status
+from apps.accounts.models import User
 
 from apps.common.responses import (
     success_response,
@@ -30,16 +31,26 @@ from .serializers import (
     GroupMemberSerializer,
     GroupInvitationSerializer,
     InviteMemberSerializer,
+    UpdateMemberRoleSerializer,
+    TransferOwnershipSerializer,
 )
 
 from .selectors import (
     get_group_members,
+    get_group_member_by_id,
+    get_group_member,
+    is_owner,
+    is_admin_or_owner,
 )
 
 from .services import (
     invite_member,
     accept_invitation,
     reject_invitation,
+    remove_group_member,
+    leave_group,
+    transfer_ownership,
+    update_member_role,
 )
 
 
@@ -240,3 +251,147 @@ class UserInvitationsView(APIView):
             data=serializer.data,
             message="User invitations fetched successfully",
         )
+
+class RemoveGroupMemberView(APIView):
+
+    def delete(
+        self,
+        request,
+        member_id,
+    ):
+        member = get_object_or_404(
+            GroupMember,
+            id=member_id,
+        )
+
+        try:
+            remove_group_member(
+                actor=request.user,
+                member=member,
+            )
+
+            return success_response(
+                message="Member removed",
+            )
+
+        except ValueError as e:
+            return error_response(
+                message=str(e),
+            )
+
+class LeaveGroupView(APIView):
+
+    def post(
+        self,
+        request,
+        group_id,
+    ):
+        group = get_object_or_404(
+            Group,
+            id=group_id,
+        )
+
+        try:
+            leave_group(
+                group=group,
+                user=request.user,
+            )
+
+            return success_response(
+                message="Left group successfully",
+            )
+
+        except ValueError as e:
+            return error_response(
+                message=str(e),
+            )
+
+class TransferOwnershipView(APIView):
+
+    def post(
+        self,
+        request,
+        group_id,
+    ):
+        group = get_object_or_404(
+            Group,
+            id=group_id,
+        )
+
+        serializer = (
+            TransferOwnershipSerializer(
+                data=request.data
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        target_user = get_object_or_404(
+            User,
+            id=serializer.validated_data[
+                "user_id"
+            ]
+        )
+
+        try:
+            transfer_ownership(
+                group=group,
+                current_owner=request.user,
+                target_member=target_user,
+            )
+
+            return success_response(
+                message="Ownership transferred",
+            )
+
+        except ValueError as e:
+            return error_response(
+                message=str(e),
+            )
+
+class UpdateMemberRoleView(APIView):
+
+    def patch(
+        self,
+        request,
+        member_id,
+    ):
+        member = get_object_or_404(
+            GroupMember,
+            id=member_id,
+        )
+
+        serializer = (
+            UpdateMemberRoleSerializer(
+                data=request.data
+            )
+        )
+
+        serializer.is_valid(
+            raise_exception=True
+        )
+
+        try:
+            updated_member = (
+                update_member_role(
+                    actor=request.user,
+                    member=member,
+                    role=serializer.validated_data[
+                        "role"
+                    ],
+                )
+            )
+
+            return success_response(
+                data=GroupMemberSerializer(
+                    updated_member
+                ).data,
+                message="Role updated",
+            )
+
+        except ValueError as e:
+            return error_response(
+                message=str(e),
+            )

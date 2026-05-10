@@ -7,7 +7,11 @@ from .views import (
     AcceptInvitationView,
     RejectInvitationView,
     GroupInvitationsView,
-    UserInvitationsView
+    UserInvitationsView,
+    RemoveGroupMemberView,
+    LeaveGroupView,
+    TransferOwnershipView,
+    UpdateMemberRoleView,
 )
 
 urlpatterns = [
@@ -18,4 +22,8 @@ urlpatterns = [
     path("invitations/me/", UserInvitationsView.as_view(),),
     path("invitations/<int:invitation_id>/accept/", AcceptInvitationView.as_view(),),
     path("invitations/<int:invitation_id>/reject/", RejectInvitationView.as_view(),),
+    path("members/<int:member_id>/remove/",RemoveGroupMemberView.as_view(),),
+    path("<int:group_id>/leave/",LeaveGroupView.as_view(),),
+    path("<int:group_id>/transfer-ownership/",TransferOwnershipView.as_view(),),
+    path("members/<int:member_id>/role/",UpdateMemberRoleView.as_view(),),
 ]

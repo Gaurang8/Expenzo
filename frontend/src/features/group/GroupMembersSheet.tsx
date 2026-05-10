@@ -8,16 +8,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
-    MoreVertical, UserPlus, X, ChevronRight, Users, Image as ImageIcon,
+    MoreVertical, UserPlus, X, ChevronRight, Users, Shield, Image as ImageIcon,
     DollarSign, Calendar, Edit2, ClipboardCheck, Bell,
     PieChart, Coins, Download, LogOut, Trash2
 } from "lucide-react"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
 import { useGroupMembers, useGroupInvitations } from "./queries"
-import { useAcceptInvitation, useRejectInvitation } from "./mutations"
+import { useAcceptInvitation, useRejectInvitation, useRemoveMember, useLeaveGroup, useTransferOwnership, useUpdateMemberRole } from "./mutations"
 import type { Group } from "./types"
 import { useState } from "react"
 import { InviteMemberDialog } from "./InviteMemberDialog"
 import { useAuthStore } from "@/store/auth-store"
+import { useNavigate } from "react-router-dom"
+import { toast } from "@/lib/toast"
 
 interface GroupMembersSheetProps {
     group: Group
@@ -26,17 +42,101 @@ interface GroupMembersSheetProps {
 }
 
 export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersSheetProps) => {
+    const navigate = useNavigate()
     const currentUser = useAuthStore((state) => state.user)
     const { data: membersRes } = useGroupMembers(group.id.toString())
     const { data: invitationsRes } = useGroupInvitations(group.id.toString())
 
     const [isInviteOpen, setIsInviteOpen] = useState(false)
+    const [memberToRemove, setMemberToRemove] = useState<number | null>(null)
+    const [memberToTransfer, setMemberToTransfer] = useState<{ id: number, user_id: number } | null>(null)
+    const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
 
     const members = membersRes?.data || []
     const invitations = invitationsRes?.data || []
 
     const acceptMutation = useAcceptInvitation()
     const rejectMutation = useRejectInvitation()
+    const removeMutation = useRemoveMember(group.id.toString())
+    const leaveMutation = useLeaveGroup(group.id.toString())
+    const transferMutation = useTransferOwnership(group.id.toString())
+    const updateRoleMutation = useUpdateMemberRole(group.id.toString())
+
+    const currentUserMember = members.find(m => m.user_email === currentUser?.email)
+
+    const canRemove = (targetMember) => {
+        if (!currentUserMember) return false
+        if (currentUserMember.id === targetMember.id) return false
+        if (targetMember.role === 'owner') return false
+        return ['owner', 'admin'].includes(currentUserMember.role)
+    }
+
+    const canUpdateRole = (targetMember) => {
+        if (!currentUserMember) return false
+        if (currentUserMember.id === targetMember.id) return false
+        if (targetMember.role === 'owner') return false
+        return ['owner', 'admin'].includes(currentUserMember.role)
+    }
+
+    const handleRemoveMember = (memberId: number) => {
+        setMemberToRemove(memberId)
+    }
+
+    const confirmRemoveMember = () => {
+        if (memberToRemove) {
+            removeMutation.mutate(memberToRemove, {
+                onSuccess: (res) => {
+                    toast.success(res?.message || "Member removed")
+                    setMemberToRemove(null)
+                },
+                onError: (err) => {
+                    toast.apiError(err)
+                    setMemberToRemove(null)
+                }
+            })
+        }
+    }
+
+    const confirmLeaveGroup = () => {
+        leaveMutation.mutate(undefined, {
+            onSuccess: (res) => {
+                toast.success(res?.message || "Left group successfully")
+                setIsLeaveDialogOpen(false)
+                onOpenChange(false)
+                navigate("/")
+            },
+            onError: (err) => {
+                toast.apiError(err)
+                setIsLeaveDialogOpen(false)
+            }
+        })
+    }
+
+    const confirmTransferOwnership = () => {
+        if (memberToTransfer) {
+            transferMutation.mutate({ user_id: memberToTransfer.user_id }, {
+                onSuccess: (res) => {
+                    toast.success(res?.message || "Ownership transferred")
+                    setMemberToTransfer(null)
+                },
+                onError: (err) => {
+                    toast.apiError(err)
+                    setMemberToTransfer(null)
+                }
+            })
+        }
+    }
+
+    const handleUpdateRole = (memberId: number, newRole: 'admin' | 'member') => {
+        updateRoleMutation.mutate({ memberId, role: newRole }, {
+            onSuccess: (res) => {
+                toast.success(res?.message || "Role updated successfully")
+            },
+            onError: (err) => {
+                toast.apiError(err)
+            }
+        })
+    }
 
     return (
         <>
@@ -111,15 +211,34 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                             )}
                                                         </div>
                                                         <span className="text-[12px] font-bold text-amber-500 mt-0.5 uppercase tracking-wide">
-                                                            Admin
+                                                            Owner
                                                         </span>
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center gap-4">
-                                                    <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
-                                                        <MoreVertical className="size-4" />
-                                                    </Button>
+                                                    {canRemove(member) ? (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
+                                                                    <MoreVertical className="size-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48 rounded-lg p-1.5">
+                                                                <DropdownMenuItem
+                                                                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50 cursor-pointer font-medium py-2 rounded-md"
+                                                                    onClick={() => handleRemoveMember(member.id)}
+                                                                >
+                                                                    <Trash2 className="size-4 mr-2" />
+                                                                    Remove member
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    ) : (
+                                                        <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-50" disabled>
+                                                            <MoreVertical className="size-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -151,9 +270,15 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <span className="text-[12px] font-bold text-slate-400 mt-0.5">
-                                                            Member
-                                                        </span>
+                                                        {member.role === 'admin' ? (
+                                                            <span className="text-[12px] font-bold text-indigo-500 mt-0.5 uppercase tracking-wide">
+                                                                Admin
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[12px] font-bold text-slate-400 mt-0.5">
+                                                                Member
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -170,9 +295,46 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
-                                                        <MoreVertical className="size-4" />
-                                                    </Button>
+                                                    {canRemove(member) ? (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
+                                                                    <MoreVertical className="size-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48 rounded-lg p-1.5 flex flex-col gap-1">
+                                                                {canUpdateRole(member) && (
+                                                                    <DropdownMenuItem
+                                                                        className="text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50 cursor-pointer font-medium py-2 rounded-md"
+                                                                        onClick={() => handleUpdateRole(member.id, member.role === 'admin' ? 'member' : 'admin')}
+                                                                    >
+                                                                        <Shield className="size-4 mr-2" />
+                                                                        {member.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {currentUserMember?.role === 'owner' && (
+                                                                    <DropdownMenuItem
+                                                                        className="text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50 cursor-pointer font-medium py-2 rounded-md"
+                                                                        onClick={() => setMemberToTransfer({ id: member.id, user_id: member.user })}
+                                                                    >
+                                                                        <Users className="size-4 mr-2" />
+                                                                        Make owner
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                <DropdownMenuItem
+                                                                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50 cursor-pointer font-medium py-2 rounded-md"
+                                                                    onClick={() => handleRemoveMember(member.id)}
+                                                                >
+                                                                    <Trash2 className="size-4 mr-2" />
+                                                                    Remove member
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    ) : (
+                                                        <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-50" disabled>
+                                                            <MoreVertical className="size-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -392,7 +554,10 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-start gap-4 py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
+                                                <div
+                                                    className="flex items-start gap-4 py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors"
+                                                    onClick={() => setIsLeaveDialogOpen(true)}
+                                                >
                                                     <LogOut className="size-5 text-slate-400 mt-0.5" />
                                                     <div className="flex flex-col">
                                                         <span className="text-[15px] font-bold text-slate-900">Leave group</span>
@@ -432,6 +597,63 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                 open={isInviteOpen}
                 onOpenChange={setIsInviteOpen}
             />
+
+            <Dialog open={memberToRemove !== null} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Remove Member</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to remove this member? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setMemberToRemove(null)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmRemoveMember} disabled={removeMutation.isPending}>
+                            {removeMutation.isPending ? "Removing..." : "Remove"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isLeaveDialogOpen} onOpenChange={setIsLeaveDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Leave Group</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to leave this group? You will no longer have access to its expenses and payments.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsLeaveDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmLeaveGroup} disabled={leaveMutation.isPending}>
+                            {leaveMutation.isPending ? "Leaving..." : "Leave Group"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={memberToTransfer !== null} onOpenChange={(open) => !open && setMemberToTransfer(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Transfer Ownership</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to transfer ownership of this group? You will become an admin and lose owner privileges.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setMemberToTransfer(null)}>
+                            Cancel
+                        </Button>
+                        <Button variant="default" onClick={confirmTransferOwnership} disabled={transferMutation.isPending} className="bg-indigo-600 hover:bg-indigo-700">
+                            {transferMutation.isPending ? "Transferring..." : "Confirm"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }

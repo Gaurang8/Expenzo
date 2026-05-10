@@ -6,6 +6,8 @@ from .models import (
     GroupInvitation
 )
 
+from .enums import GroupRole
+
 
 class GroupSerializer(serializers.ModelSerializer):
 
@@ -63,3 +65,16 @@ class InviteMemberSerializer(
     serializers.Serializer
 ):
     email = serializers.EmailField()
+
+class UpdateMemberRoleSerializer(
+    serializers.Serializer
+):
+    role = serializers.ChoiceField(
+        choices=GroupRole.choices
+    )
+
+
+class TransferOwnershipSerializer(
+    serializers.Serializer
+):
+    user_id = serializers.IntegerField()
