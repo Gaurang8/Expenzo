@@ -3,6 +3,16 @@ export interface Group {
   name: string
   description: string
   created_at: string
+  current_user_role: 'owner' | 'admin' | 'member' | null
+  permissions: {
+    can_invite_members: boolean
+    can_remove_members: boolean
+    can_update_roles: boolean
+    can_transfer_ownership: boolean
+    can_delete_group: boolean
+    can_leave_group: boolean
+    can_add_expense: boolean
+  }
 }
 
 export interface GroupMember {

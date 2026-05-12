@@ -64,6 +64,7 @@ class GroupListCreateView(APIView):
         serializer = GroupSerializer(
             groups,
             many=True,
+            context={"request": request},
         )
 
         return success_response(

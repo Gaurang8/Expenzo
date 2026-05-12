@@ -88,6 +88,7 @@ export function useTransferOwnership(groupId: string) {
     mutationFn: (payload) => api.post(`/groups/${groupId}/transfer-ownership/`, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups", groupId, "members"] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
     },
   })
 }
@@ -100,6 +101,7 @@ export function useUpdateMemberRole(groupId: string) {
     mutationFn: ({ memberId, role }) => api.patch(`/groups/members/${memberId}/role/`, { role }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["groups", groupId, "members"] })
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
     },
   })
 }

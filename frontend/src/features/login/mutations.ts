@@ -30,3 +30,15 @@ export function useLogin() {
       api.post<LoginData>("/accounts/login/", payload),
   })
 }
+
+export interface GoogleLoginPayload {
+  token: string
+}
+
+/** POST /accounts/google-login/ */
+export function useGoogleLogin() {
+  return useMutation<ApiSuccess<LoginData>, ApiError, GoogleLoginPayload>({
+    mutationFn: (payload) =>
+      api.post<LoginData>("/accounts/google-login/", payload),
+  })
+}

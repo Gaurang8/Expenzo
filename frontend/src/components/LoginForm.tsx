@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import * as z from "zod"
 import { useNavigate } from "react-router-dom"
+import { GoogleLogin } from "@react-oauth/google"
 
 import { Button } from "@/components/ui/button"
 
@@ -24,7 +25,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Link } from "react-router-dom"
 
-import { useLogin } from "@/features/login/mutations"
+import { useLogin, useGoogleLogin, type LoginData } from "@/features/login/mutations"
+import type { ApiSuccess } from "@/lib/types"
 import { toast } from "@/lib/toast"
 import { useAuthStore } from "@/store/auth-store"
 import { ROUTES } from "@/lib/routes"
@@ -43,7 +45,8 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export function LoginForm() {
   const navigate = useNavigate()
-  const { mutate: login, isPending } = useLogin()
+  const { mutate: login, isPending: isLoginPending } = useLogin()
+  const { mutate: googleLogin, isPending: isGooglePending } = useGoogleLogin()
   const { setUser } = useAuthStore()
 
   const form = useForm<LoginFormValues>({
@@ -57,21 +60,27 @@ export function LoginForm() {
   function onSubmit(data: LoginFormValues) {
     login(data, {
       onSuccess: (res) => {
-        // Store tokens in localStorage
-        localStorage.setItem("access_token", res.data.access)
-        localStorage.setItem("refresh_token", res.data.refresh)
-
-        // Update Zustand store
-        setUser(res.data.user)
-
-        toast.success(res.message)
-        navigate(ROUTES.HOME)
+        handleAuthSuccess(res)
       },
       onError: (err) => {
         toast.apiError(err)
       },
     })
   }
+
+  const handleAuthSuccess = (res: ApiSuccess<LoginData>) => {
+    // Store tokens in localStorage
+    localStorage.setItem("access_token", res.data.access)
+    localStorage.setItem("refresh_token", res.data.refresh)
+
+    // Update Zustand store
+    setUser(res.data.user)
+
+    toast.success(res.message)
+    navigate(ROUTES.HOME)
+  }
+
+  const isPending = isLoginPending || isGooglePending
 
   return (
     <Card className="w-full sm:max-w-md">
@@ -150,20 +159,42 @@ export function LoginForm() {
                 size="lg"
                 disabled={isPending}
               >
-                {isPending ? "Logging in..." : "Login"}
+                {isLoginPending ? "Logging in..." : "Login"}
               </Button>
 
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card my-2">
                 Or continue with
               </FieldSeparator>
 
-              <Button
-                variant="outline"
-                type="button"
-                className="w-full h-10"
-              >
-                Login with Google
-              </Button>
+              <div className="w-full flex justify-center py-1">
+                <GoogleLogin
+                  onSuccess={(credentialResponse) => {
+                    if (credentialResponse.credential) {
+                      googleLogin({ token: credentialResponse.credential }, {
+                        onSuccess: (res) => {
+                          handleAuthSuccess(res)
+                        },
+                        onError: (err) => {
+                          toast.apiError(err)
+                        }
+                      })
+                    }
+                  }}
+                  onError={() => {
+                    toast.error("Google login failed")
+                  }}
+                  theme="outline"
+                  shape="rectangular"
+                  width="640"
+                  logo_alignment="center"
+                />
+              </div>
+
+              {isGooglePending && (
+                <p className="text-xs text-center text-slate-500 animate-pulse">
+                  Connecting with Google...
+                </p>
+              )}
             </div>
 
             <p className="text-muted-foreground px-6 text-center text-sm">
