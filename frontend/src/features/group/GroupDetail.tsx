@@ -72,10 +72,12 @@ const GroupDetail = () => {
                             <Wallet className="mr-2 size-5 text-slate-600" />
                             Make payment
                         </Button>
-                        <Button className="rounded-lg font-semibold h-12 px-4 cursor-pointer bg-indigo-700 hover:bg-indigo-600 shadow-lg shadow-indigo-100">
-                            <Plus className="mr-2 size-5" />
-                            Add expense
-                        </Button>
+                        {group.permissions?.can_add_expense && (
+                            <Button className="rounded-lg font-semibold h-12 px-4 cursor-pointer bg-indigo-700 hover:bg-indigo-600 shadow-lg shadow-indigo-100">
+                                <Plus className="mr-2 size-5" />
+                                Add expense
+                            </Button>
+                        )}
                     </div>
                 </div>
             </div>

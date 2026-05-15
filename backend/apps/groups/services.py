@@ -271,3 +271,16 @@ def update_member_role(
     member.save()
 
     return member
+
+def build_group_permissions(membership):
+    role = membership.role
+
+    return {
+        "can_invite_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_remove_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_update_roles": role == GroupRole.OWNER,
+        "can_transfer_ownership": role == GroupRole.OWNER,
+        "can_delete_group": role == GroupRole.OWNER,
+        "can_leave_group": role != GroupRole.OWNER,
+        "can_add_expense": True,  # For now, all members can add expenses
+    }

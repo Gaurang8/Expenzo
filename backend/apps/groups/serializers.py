@@ -7,19 +7,70 @@ from .models import (
 )
 
 from .enums import GroupRole
+from .services import build_group_permissions
 
 
 class GroupSerializer(serializers.ModelSerializer):
 
+    permissions = serializers.SerializerMethodField()
+
+    current_user_role = serializers.SerializerMethodField()
+
     class Meta:
         model = Group
+
         fields = (
             "id",
             "name",
             "description",
             "created_at",
+            "permissions",
+            "current_user_role",
         )
 
+    def get_current_user_role(
+        self,
+        obj,
+    ):
+        request = self.context.get(
+            "request"
+        )
+
+        if not request:
+            return None
+
+        membership = GroupMember.objects.filter(
+            group=obj,
+            user=request.user,
+        ).first()
+
+        if not membership:
+            return None
+
+        return membership.role
+
+    def get_permissions(
+        self,
+        obj,
+    ):
+        request = self.context.get(
+            "request"
+        )
+
+        if not request:
+            return {}
+
+        membership = GroupMember.objects.filter(
+            group=obj,
+            user=request.user,
+        ).first()
+
+        if not membership:
+            return {}
+
+        return build_group_permissions(
+            membership
+        )
 
 class GroupMemberSerializer(serializers.ModelSerializer):
 

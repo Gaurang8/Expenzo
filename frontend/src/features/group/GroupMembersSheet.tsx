@@ -62,20 +62,28 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
     const transferMutation = useTransferOwnership(group.id.toString())
     const updateRoleMutation = useUpdateMemberRole(group.id.toString())
 
-    const currentUserMember = members.find(m => m.user_email === currentUser?.email)
+    const currentUserRole = group.current_user_role
 
     const canRemove = (targetMember) => {
-        if (!currentUserMember) return false
-        if (currentUserMember.id === targetMember.id) return false
+        if (!group.permissions?.can_remove_members) return false
+        
+        // Cannot remove yourself (use Leave instead)
+        if (currentUser?.email === targetMember.user_email) return false
+        
+        // Cannot remove an owner (only they can transfer)
         if (targetMember.role === 'owner') return false
-        return ['owner', 'admin'].includes(currentUserMember.role)
+
+        // Admins can only remove regular members, not other admins
+        if (currentUserRole === 'admin' && targetMember.role === 'admin') return false
+
+        return true
     }
 
     const canUpdateRole = (targetMember) => {
-        if (!currentUserMember) return false
-        if (currentUserMember.id === targetMember.id) return false
+        if (!group.permissions?.can_update_roles) return false
+        if (currentUser?.email === targetMember.user_email) return false
         if (targetMember.role === 'owner') return false
-        return ['owner', 'admin'].includes(currentUserMember.role)
+        return true
     }
 
     const handleRemoveMember = (memberId: number) => {
@@ -312,7 +320,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                                         {member.role === 'admin' ? 'Remove admin' : 'Make admin'}
                                                                     </DropdownMenuItem>
                                                                 )}
-                                                                {currentUserMember?.role === 'owner' && (
+                                                                {group.permissions?.can_transfer_ownership && member.role !== 'owner' && (
                                                                     <DropdownMenuItem
                                                                         className="text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50 cursor-pointer font-medium py-2 rounded-md"
                                                                         onClick={() => setMemberToTransfer({ id: member.id, user_id: member.user })}
@@ -554,39 +562,45 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                     </div>
                                                 </div>
 
-                                                <div
-                                                    className="flex items-start gap-4 py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors"
-                                                    onClick={() => setIsLeaveDialogOpen(true)}
-                                                >
-                                                    <LogOut className="size-5 text-slate-400 mt-0.5" />
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[15px] font-bold text-slate-900">Leave group</span>
-                                                        <span className="text-[13px] text-slate-500">You will no longer be a member</span>
+                                                {group.permissions?.can_leave_group && (
+                                                    <div
+                                                        className="flex items-start gap-4 py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors"
+                                                        onClick={() => setIsLeaveDialogOpen(true)}
+                                                    >
+                                                        <LogOut className="size-5 text-slate-400 mt-0.5" />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[15px] font-bold text-slate-900">Leave group</span>
+                                                            <span className="text-[13px] text-slate-500">You will no longer be a member</span>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
 
-                                                <div className="flex items-start gap-4 py-3 cursor-pointer hover:bg-rose-50 rounded-xl px-2 -mx-2 transition-colors mt-2">
-                                                    <Trash2 className="size-5 text-rose-500 mt-0.5" />
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[15px] font-bold text-rose-600">Delete group</span>
-                                                        <span className="text-[13px] text-rose-500/70">This action cannot be undone</span>
+                                                {group.permissions?.can_delete_group && (
+                                                    <div className="flex items-start gap-4 py-3 cursor-pointer hover:bg-rose-50 rounded-xl px-2 -mx-2 transition-colors mt-2">
+                                                        <Trash2 className="size-5 text-rose-500 mt-0.5" />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[15px] font-bold text-rose-600">Delete group</span>
+                                                            <span className="text-[13px] text-rose-500/70">This action cannot be undone</span>
+                                                        </div>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
                                 </TabsContent>
                             </div>
 
-                            <div className="p-6 mt-auto">
-                                <Button
-                                    onClick={() => setIsInviteOpen(true)}
-                                    className="w-full h-[52px] bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 font-black text-[15px] rounded-2xl flex items-center justify-center gap-3 group transition-all duration-300 shadow-sm"
-                                >
-                                    <UserPlus className="size-5 group-hover:scale-110 transition-transform" />
-                                    Invite member
-                                </Button>
-                            </div>
+                            {group.permissions?.can_invite_members && (
+                                <div className="p-6 mt-auto">
+                                    <Button
+                                        onClick={() => setIsInviteOpen(true)}
+                                        className="w-full h-[52px] bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 font-black text-[15px] rounded-2xl flex items-center justify-center gap-3 group transition-all duration-300 shadow-sm"
+                                    >
+                                        <UserPlus className="size-5 group-hover:scale-110 transition-transform" />
+                                        Invite member
+                                    </Button>
+                                </div>
+                            )}
                         </Tabs>
                     </div>
                 </SheetContent>
@@ -659,4 +673,3 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 }
 
 export default GroupMembersSheet
-

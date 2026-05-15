@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import * as z from "zod"
 import { useNavigate } from "react-router-dom"
+import { GoogleLogin } from "@react-oauth/google"
 
 import { Button } from "@/components/ui/button"
 
@@ -26,8 +27,11 @@ import { Input } from "@/components/ui/input"
 import { Link } from "react-router-dom"
 
 import { useRegister } from "@/features/signup/mutations"
+import { useGoogleLogin, type LoginData } from "@/features/login/mutations"
+import type { ApiSuccess } from "@/lib/types"
 import { toast } from "@/lib/toast"
 import { ROUTES } from "@/lib/routes"
+import { useAuthStore } from "@/store/auth-store"
 
 const signupSchema = z
   .object({
@@ -36,7 +40,7 @@ const signupSchema = z
       .min(2, "Name must be at least 2 characters.")
       .max(50, "Name must be at most 50 characters."),
 
-    email: z.email("Please enter a valid email."),
+    email: z.string().email("Please enter a valid email."),
 
     password: z
       .string()
@@ -53,7 +57,9 @@ type SignupFormValues = z.infer<typeof signupSchema>
 
 export function SignupForm() {
   const navigate = useNavigate()
-  const { mutate: register, isPending } = useRegister()
+  const { mutate: register, isPending: isRegisterPending } = useRegister()
+  const { mutate: googleLogin, isPending: isGooglePending } = useGoogleLogin()
+  const { setUser } = useAuthStore()
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -83,6 +89,20 @@ export function SignupForm() {
       },
     )
   }
+
+  const handleAuthSuccess = (res: ApiSuccess<LoginData>) => {
+    // Store tokens in localStorage
+    localStorage.setItem("access_token", res.data.access)
+    localStorage.setItem("refresh_token", res.data.refresh)
+
+    // Update Zustand store
+    setUser(res.data.user)
+
+    toast.success(res.message)
+    navigate(ROUTES.HOME)
+  }
+
+  const isPending = isRegisterPending || isGooglePending
 
   return (
     <Card className="w-full sm:max-w-md">
@@ -217,20 +237,42 @@ export function SignupForm() {
                 size="lg"
                 disabled={isPending}
               >
-                {isPending ? "Creating account…" : "Create Account"}
+                {isRegisterPending ? "Creating account…" : "Create Account"}
               </Button>
 
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card my-2">
                 Or continue with
               </FieldSeparator>
 
-              <Button
-                variant="outline"
-                type="button"
-                className="w-full h-10"
-              >
-                Sign up with Google
-              </Button>
+              <div className="w-full flex justify-center py-1">
+                <GoogleLogin
+                  onSuccess={(credentialResponse) => {
+                    if (credentialResponse.credential) {
+                      googleLogin({ token: credentialResponse.credential }, {
+                        onSuccess: (res) => {
+                          handleAuthSuccess(res)
+                        },
+                        onError: (err) => {
+                          toast.apiError(err)
+                        }
+                      })
+                    }
+                  }}
+                  onError={() => {
+                    toast.error("Google login failed")
+                  }}
+                  theme="outline"
+                  shape="rectangular"
+                  width="640"
+                  logo_alignment="center"
+                />
+              </div>
+
+              {isGooglePending && (
+                <p className="text-xs text-center text-slate-500 animate-pulse">
+                  Connecting with Google...
+                </p>
+              )}
             </div>
 
             <p className="text-muted-foreground px-6 text-center text-sm">
