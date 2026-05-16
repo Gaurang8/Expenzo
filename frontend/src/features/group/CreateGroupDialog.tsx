@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { useForm, Controller } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
@@ -73,37 +73,25 @@ export function CreateGroupDialog() {
         <Separator className="my-3" />
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FieldGroup>
-            <Controller
-              control={form.control}
-              name="name"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="group-name">Group Name</FieldLabel>
-                  <Input
-                    id="group-name"
-                    placeholder="ex. Goa Trip, Office Lunch"
-                    {...field}
-                  />
-                  <FieldError errors={[fieldState.error]} />
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="description"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="group-desc">Description (Optional)</FieldLabel>
-                  <Textarea
-                    id="group-desc"
-                    placeholder="What is this group for?"
-                    className="resize-none h-24"
-                    {...field}
-                  />
-                  <FieldError errors={[fieldState.error]} />
-                </Field>
-              )}
-            />
+            <Field data-invalid={form.formState.errors.name}>
+              <FieldLabel htmlFor="group-name">Group Name</FieldLabel>
+              <Input
+                id="group-name"
+                placeholder="ex. Goa Trip, Office Lunch"
+                {...form.register("name")}
+              />
+              {form.formState.errors.name && <FieldError errors={[form.formState.errors.name]} />}
+            </Field>
+            <Field data-invalid={form.formState.errors.description}>
+              <FieldLabel htmlFor="group-desc">Description (Optional)</FieldLabel>
+              <Textarea
+                id="group-desc"
+                placeholder="What is this group for?"
+                className="resize-none h-24"
+                {...form.register("description")}
+              />
+              {form.formState.errors.description && <FieldError errors={[form.formState.errors.description]} />}
+            </Field>
           </FieldGroup>
           <DialogFooter>
             <Button

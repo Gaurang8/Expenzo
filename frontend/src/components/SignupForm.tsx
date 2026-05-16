@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Controller, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { useNavigate } from "react-router-dom"
 import { GoogleLogin } from "@react-oauth/google"
@@ -121,114 +121,53 @@ export function SignupForm() {
         >
           <FieldGroup>
 
-            <Controller
-              name="name"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="signup-name">
-                    Full Name
-                  </FieldLabel>
+            <Field data-invalid={form.formState.errors.name}>
+              <FieldLabel htmlFor="signup-name">Full Name</FieldLabel>
+              <Input
+                {...form.register("name")}
+                id="signup-name"
+                placeholder="ex. Gaurang Patel"
+                autoComplete="name"
+              />
+              {form.formState.errors.name && <FieldError errors={[form.formState.errors.name]} />}
+            </Field>
 
-                  <Input
-                    {...field}
-                    id="signup-name"
-                    placeholder="ex. Gaurang Patel"
-                    autoComplete="name"
-                    aria-invalid={fieldState.invalid}
-                  />
+            <Field data-invalid={form.formState.errors.email}>
+              <FieldLabel htmlFor="signup-email">Email</FieldLabel>
+              <Input
+                {...form.register("email")}
+                id="signup-email"
+                type="text"
+                placeholder="m@example.com"
+                autoComplete="email"
+              />
+              <FieldDescription>We&apos;ll use this to contact you.</FieldDescription>
+              {form.formState.errors.email && <FieldError errors={[form.formState.errors.email]} />}
+            </Field>
 
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+            <Field data-invalid={form.formState.errors.password}>
+              <FieldLabel htmlFor="signup-password">Password</FieldLabel>
+              <Input
+                {...form.register("password")}
+                id="signup-password"
+                type="password"
+                autoComplete="new-password"
+              />
+              <FieldDescription>Must be at least 8 characters long.</FieldDescription>
+              {form.formState.errors.password && <FieldError errors={[form.formState.errors.password]} />}
+            </Field>
 
-            <Controller
-              name="email"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="signup-email">
-                    Email
-                  </FieldLabel>
-
-                  <Input
-                    {...field}
-                    id="signup-email"
-                    type="text"
-                    placeholder="m@example.com"
-                    autoComplete="email"
-                    aria-invalid={fieldState.invalid}
-                  />
-
-                  <FieldDescription>
-                    We&apos;ll use this to contact you.
-                  </FieldDescription>
-
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="password"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="signup-password">
-                    Password
-                  </FieldLabel>
-
-                  <Input
-                    {...field}
-                    id="signup-password"
-                    type="password"
-                    autoComplete="new-password"
-                    aria-invalid={fieldState.invalid}
-                  />
-
-                  <FieldDescription>
-                    Must be at least 8 characters long.
-                  </FieldDescription>
-
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="confirmPassword"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="signup-confirm-password">
-                    Confirm Password
-                  </FieldLabel>
-
-                  <Input
-                    {...field}
-                    id="signup-confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    aria-invalid={fieldState.invalid}
-                  />
-
-                  <FieldDescription>
-                    Please confirm your password.
-                  </FieldDescription>
-
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+            <Field data-invalid={form.formState.errors.confirmPassword}>
+              <FieldLabel htmlFor="signup-confirm-password">Confirm Password</FieldLabel>
+              <Input
+                {...form.register("confirmPassword")}
+                id="signup-confirm-password"
+                type="password"
+                autoComplete="new-password"
+              />
+              <FieldDescription>Please confirm your password.</FieldDescription>
+              {form.formState.errors.confirmPassword && <FieldError errors={[form.formState.errors.confirmPassword]} />}
+            </Field>
 
             <div className="flex flex-col gap-3 pt-2">
               <Button

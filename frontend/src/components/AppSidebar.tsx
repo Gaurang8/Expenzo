@@ -40,6 +40,7 @@ import { ROUTES } from "@/lib/routes"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { cn } from "@/lib/utils"
+import { getInitials } from "@/lib/format"
 
 const items = [
   {
@@ -96,21 +97,6 @@ export function AppSidebar() {
     navigate(ROUTES.LOGIN)
   }
 
-  const formatizeName = (name) => {
-    const firstName = name.split(' ')[0]
-    const lastName = name?.split(' ')[1]
-
-
-    if (firstName.length >= 1 && lastName?.length >= 1) {
-      return firstName[0] + lastName[0]
-    }
-
-    if (firstName.length >= 1) {
-      return firstName[0]
-    }
-
-    return "U"
-  }
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-20 border-b flex items-center flex-row px-4">
@@ -209,7 +195,7 @@ export function AppSidebar() {
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage src={user?.full_name} alt={user?.full_name} />
                     <AvatarFallback className=" rounded-lg">
-                      {formatizeName(user?.full_name)}
+                      {getInitials(user?.full_name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
@@ -229,7 +215,7 @@ export function AppSidebar() {
                     <Avatar className="h-8 w-8 rounded-lg">
                       <AvatarImage src={user.full_name} alt={user.full_name} />
                       <AvatarFallback className="rounded-lg">
-                        {formatizeName(user?.full_name)}
+                        {getInitials(user?.full_name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">

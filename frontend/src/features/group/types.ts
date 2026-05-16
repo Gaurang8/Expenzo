@@ -18,8 +18,11 @@ export interface Group {
 export interface GroupMember {
   id: number
   user: number
-  user_email: string
-  full_name: string
+  user_info: {
+    id: number
+    name: string
+    email: string
+  }
   role: 'owner' | 'admin' | 'member'
   joined_at: string
 }

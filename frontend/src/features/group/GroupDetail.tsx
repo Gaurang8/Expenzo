@@ -1,22 +1,186 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Wallet, ChevronRight, Users } from "lucide-react"
+import { Plus, Wallet, ChevronRight, Users, Calendar } from "lucide-react"
 import { useParams } from "react-router-dom"
 import { useGroups, useGroupMembers } from "./queries"
+import { useGroupActivities } from "@/features/expenses/queries"
+import { ExpenseFormDialog } from "@/features/expenses/CreateExpenseDialog"
+import { SettlementFormDialog } from "@/features/expenses/CreateSettlementDialog"
 import { useState } from "react"
 import { GroupMembersSheet } from "./GroupMembersSheet"
+import { ExpenseDetailSheet } from "@/features/expenses/ExpenseDetailSheet"
+import type { Expense, Settlement, EditActivity } from "@/features/expenses/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { ActivityItem, ExpenseActivity, SettlementActivity } from "@/features/expenses/types"
+import { formatCurrency, formatMonthYear, getInitials } from "@/lib/format"
+import { useDeleteExpense, useDeleteSettlement } from "@/features/expenses/mutations"
+import { toast } from "@/lib/toast"
+
+
+function ExpenseCard({ item }: { item: ExpenseActivity }) {
+    const net = parseFloat(item.my_net)
+
+    let bgColor: string
+    let statusLabel: string
+    let netDisplay: string
+
+    if (!item.is_involved) {
+        bgColor = "bg-slate-100"
+        statusLabel = "Not involved"
+        netDisplay = "—"
+    } else if (net > 0) {
+        bgColor = "bg-emerald-400"
+        statusLabel = "You are owed"
+        netDisplay = `+${formatCurrency(net)}`
+    } else if (net < 0) {
+        bgColor = "bg-rose-400"
+        statusLabel = "You owe"
+        netDisplay = `-${formatCurrency(Math.abs(net))}`
+    } else {
+        bgColor = "bg-slate-100"
+        statusLabel = "Settled"
+        netDisplay = formatCurrency(0)
+    }
+
+    const isLight = bgColor === "bg-slate-100"
+    const textColor = isLight ? "text-slate-700" : "text-white"
+    const subColor = isLight ? "opacity-60" : "opacity-80"
+
+    const payerName = item.primary_payer_info?.name ?? "Someone"
+    const payerTypography = item.payers_count > 1
+        ? `${payerName} + ${item.payers_count - 1}`
+        : payerName
+
+    return (
+        <div className={`${bgColor} ${textColor} p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group`}>
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
+            </div>
+            <div className="flex items-center gap-3 mb-2">
+                <div className={`${isLight ? 'bg-slate-500/15' : 'bg-white/20'} p-2 rounded-lg`}>
+                    <Plus className="size-4" />
+                </div>
+                <span className="font-semibold text-sm truncate">{item.title}</span>
+            </div>
+            <div className="flex justify-between items-end">
+                <div>
+                    <div className="text-xl font-bold">{netDisplay}</div>
+                    <div className={`text-[11px] ${subColor} font-medium`}>
+                        {payerTypography} paid {formatCurrency(item.total_amount)}
+                    </div>
+                </div>
+                <div className={`text-[11px] font-bold uppercase tracking-wider ${subColor} text-right`}>
+                    {statusLabel}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function SettlementCard({ item }: { item: SettlementActivity }) {
+    const amount = parseFloat(item.amount)
+
+    let bgColor: string
+    let statusLabel: string
+    let description: string
+
+    if (item.my_role === "payer") {
+        bgColor = "bg-slate-700"
+        statusLabel = "You paid"
+        description = `To ${item.paid_to_info.name}`
+    } else if (item.my_role === "receiver") {
+        bgColor = "bg-slate-700"
+        statusLabel = "You received"
+        description = `From ${item.paid_by_info.name}`
+    } else {
+        bgColor = "bg-slate-100"
+        statusLabel = "Settlement"
+        description = `${item.paid_by_info.name} → ${item.paid_to_info.name}`
+    }
+
+    const isLight = bgColor === "bg-slate-100"
+    const textColor = isLight ? "text-slate-700" : "text-white"
+    const subColor = isLight ? "opacity-60" : "opacity-80"
+
+    return (
+        <div className={`${bgColor} ${textColor} p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group`}>
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
+            </div>
+            <div className="flex items-center gap-3 mb-2">
+                <div className={`${isLight ? 'bg-slate-500/15' : 'bg-white/20'} p-2 rounded-lg`}>
+                    <Wallet className="size-4" />
+                </div>
+                <span className="font-semibold text-sm">Settlement</span>
+            </div>
+            <div className="flex justify-between items-end">
+                <div>
+                    <div className="text-xl font-bold">{formatCurrency(amount)}</div>
+                    <div className={`text-[11px] ${subColor} font-medium`}>{description}</div>
+                </div>
+                <div className={`text-[11px] font-bold uppercase tracking-wider ${subColor} text-right`}>
+                    {statusLabel}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function ActivityCard({ item, onClick }: { item: ActivityItem, onClick: () => void }) {
+    return (
+        <div onClick={onClick} className="cursor-pointer">
+            {item.type === "expense" ? (
+                <ExpenseCard item={item} />
+            ) : (
+                <SettlementCard item={item} />
+            )}
+        </div>
+    )
+}
+
 
 const GroupDetail = () => {
     const { groupId } = useParams()
     const { data: groupsRes } = useGroups()
     const { data: membersRes } = useGroupMembers(groupId)
-    
+    const { data: activitiesRes, isLoading: activitiesLoading } = useGroupActivities(groupId)
+    const deleteExpense = useDeleteExpense(groupId)
+    const deleteSettlement = useDeleteSettlement(groupId)
+
     const [isSheetOpen, setIsSheetOpen] = useState(false)
+    const [isDetailOpen, setIsDetailOpen] = useState(false)
+    const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null)
+    const [isEditOpen, setIsEditOpen] = useState(false)
+    const [editingItem, setEditingItem] = useState<EditActivity | null>(null)
+
+    const handleActivityClick = (item: ActivityItem) => {
+        setSelectedActivity(item)
+        setIsDetailOpen(true)
+    }
+
+    const handleDeleteActivity = (id: number, type: 'expense' | 'settlement') => {
+        const mutation = type === 'expense' ? deleteExpense : deleteSettlement
+        mutation.mutate(id, {
+            onSuccess: () => {
+                toast.success(`${type === 'expense' ? 'Expense' : 'Settlement'} deleted`)
+                setIsDetailOpen(false)
+            },
+            onError: (err) => {
+                toast.apiError(err)
+            }
+        })
+    }
+
+    const handleEditActivity = (item: EditActivity) => {
+        setEditingItem(item)
+        setIsEditOpen(true)
+        setIsDetailOpen(false)
+    }
 
     const groups = groupsRes?.data || []
     const group = groups.find(g => g.id.toString() === groupId)
     const members = membersRes?.data || []
+    const activities = activitiesRes?.data || []
 
     if (!group) {
         return (
@@ -26,7 +190,23 @@ const GroupDetail = () => {
         )
     }
 
-    // Mock data for balances
+    // Group activities by month
+    const groupedActivities = activities.reduce((acc, activity) => {
+        const dateStr = activity.type === 'expense' ? activity.expense_date : activity.settled_at
+        const monthYear = formatMonthYear(dateStr)
+        if (!acc[monthYear]) acc[monthYear] = []
+        acc[monthYear].push(activity)
+        return acc
+    }, {} as Record<string, ActivityItem[]>)
+
+    const monthKeys = Object.keys(groupedActivities).sort((a, b) => {
+        // Sort months descending (latest first)
+        const dateA = new Date(a)
+        const dateB = new Date(b)
+        return dateB.getTime() - dateA.getTime()
+    })
+
+    // Mock data for balances (placeholder until balance API is ready)
     const balances = [
         { name: "Sahil", amount: 140, type: "owes_you" },
         { name: "Jatin Kantariya", amount: 250, type: "you_owe" },
@@ -38,15 +218,15 @@ const GroupDetail = () => {
             {/* Topbar */}
             <div className="h-20 border-b flex items-center justify-between px-8 bg-white/80 backdrop-blur-md sticky top-0 z-10">
                 <h1 className="text-2xl font-bold text-slate-800">{group.name}</h1>
-                
+
                 <div className="flex items-center gap-8">
                     <div className="hidden md:flex items-center gap-4">
                         {/* Avatar Group */}
                         <div className="flex -space-x-2.5">
                             {members.slice(0, 4).map((member) => (
                                 <Avatar key={member.id} className="size-8 border-2 border-white ring-1 ring-slate-100 shadow-sm">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_email}`} />
-                                    <AvatarFallback className="text-[10px] bg-slate-100">{member.full_name?.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
+                                    <AvatarFallback className="text-[10px] bg-slate-100">{getInitials(member.user_info.name)}</AvatarFallback>
                                 </Avatar>
                             ))}
                             {members.length > 4 && (
@@ -57,8 +237,8 @@ const GroupDetail = () => {
                         </div>
 
                         {/* Members Button */}
-                        <Button 
-                            variant="ghost" 
+                        <Button
+                            variant="ghost"
                             className="h-9 px-3 rounded-lg flex items-center gap-2 hover:bg-slate-50 text-slate-600 font-bold text-sm border border-slate-100"
                             onClick={() => setIsSheetOpen(true)}
                         >
@@ -68,19 +248,35 @@ const GroupDetail = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <Button variant="outline" className="rounded-lg h-12 px-4 cursor-pointer font-semibold border-slate-200 hover:bg-slate-50">
-                            <Wallet className="mr-2 size-5 text-slate-600" />
-                            Make payment
-                        </Button>
-                        {group.permissions?.can_add_expense && (
-                            <Button className="rounded-lg font-semibold h-12 px-4 cursor-pointer bg-indigo-700 hover:bg-indigo-600 shadow-lg shadow-indigo-100">
-                                <Plus className="mr-2 size-5" />
-                                Add expense
-                            </Button>
+                        {groupId && (
+                            <SettlementFormDialog groupId={groupId} members={members} />
+                        )}
+                        {group.permissions?.can_add_expense && groupId && (
+                            <ExpenseFormDialog groupId={groupId} members={members} />
                         )}
                     </div>
                 </div>
             </div>
+
+            {/* Edit Dialogs */}
+            {groupId && editingItem?.type === 'expense' && (
+                <ExpenseFormDialog 
+                    groupId={groupId} 
+                    members={members} 
+                    open={isEditOpen} 
+                    onOpenChange={setIsEditOpen} 
+                    initialData={editingItem as unknown as Expense}
+                />
+            )}
+            {groupId && editingItem?.type === 'settlement' && (
+                <SettlementFormDialog 
+                    groupId={groupId} 
+                    members={members} 
+                    open={isEditOpen} 
+                    onOpenChange={setIsEditOpen} 
+                    initialData={editingItem as unknown as Settlement}
+                />
+            )}
 
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                 {/* Balances Section */}
@@ -95,7 +291,7 @@ const GroupDetail = () => {
                                     {balance.type === 'you_owe' ? balance.name : 'you'}
                                 </span>
                                 <span className={`ml-2 font-bold ${balance.type === 'owes_you' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    ₹{balance.amount.toFixed(2)}
+                                    {formatCurrency(balance.amount)}
                                 </span>
                             </div>
                         ))}
@@ -108,99 +304,65 @@ const GroupDetail = () => {
 
                 <Separator className="bg-slate-100 mb-8" />
 
-                {/* Expenses Section Placeholder */}
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-sm font-bold text-slate-800">January 2019</h2>
-                    </div>
+                {/* Activity Feed */}
+                <div className="space-y-10">
+                    <h2 className="text-xs font-bold text-slate-400 tracking-wider uppercase">Activity</h2>
 
-                    {/* Mock Grid Item from Image */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="bg-rose-400 text-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-3 opacity-20">
-                                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="bg-white/20 p-2 rounded-lg">
-                                    <Plus className="size-4 rotate-45" />
-                                </div>
-                                <span className="font-medium">Electricity bill</span>
-                            </div>
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <div className="text-xl font-bold">-₹12.95</div>
-                                    <div className="text-[10px] opacity-80">Marc paid ₹25.90</div>
-                                </div>
-                                <div className="text-[10px] font-medium uppercase tracking-wider text-right">You owe</div>
-                            </div>
+                    {activitiesLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="bg-slate-100 rounded-xl h-24 animate-pulse" />
+                            ))}
                         </div>
+                    ) : activities.length === 0 ? (
+                        <div className="py-16 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                            <Wallet className="size-10 mx-auto mb-3 opacity-40" />
+                            <p className="font-semibold text-slate-500">No activity yet</p>
+                            <p className="text-sm mt-1">Add an expense to get started</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-12">
+                            {monthKeys.map(month => (
+                                <div key={month} className="space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 flex items-center gap-2">
+                                            <Calendar className="size-3.5 text-slate-400" />
+                                            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{month}</span>
+                                        </div>
+                                        <div className="h-px bg-slate-100 flex-1" />
+                                    </div>
 
-                        <div className="bg-emerald-400 text-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-3 opacity-20">
-                                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="bg-white/20 p-2 rounded-lg">
-                                    <Plus className="size-4" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {groupedActivities[month].map(item => (
+                                            <ActivityCard
+                                                key={`${item.type}-${item.id}`}
+                                                item={item}
+                                                onClick={() => handleActivityClick(item)}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                                <span className="font-medium">Dinner</span>
-                            </div>
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <div className="text-xl font-bold">+₹13.00</div>
-                                    <div className="text-[10px] opacity-80">You paid ₹26.00</div>
-                                </div>
-                                <div className="text-[10px] font-medium uppercase tracking-wider text-right">You are owed</div>
-                            </div>
+                            ))}
                         </div>
-
-                        <div className="bg-slate-700 text-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-3 opacity-20">
-                                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="bg-white/20 p-2 rounded-lg">
-                                    <Plus className="size-4" />
-                                </div>
-                                <span className="font-medium">Marc paid you</span>
-                            </div>
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <div className="text-xl font-bold">₹13.00</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* not involved card */}
-                        <div className="bg-slate-100 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-3 opacity-20">
-                                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="bg-slate-500/20 p-2 rounded-lg">
-                                    <Plus className="size-4 text-slate-600" />
-                                </div>
-                                <span className="font-medium text-slate-600">Lunch at Cafe</span>
-                            </div>
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <div className="text-xl font-bold text-slate-600">-</div>
-                                    <div className="text-[10px] opacity-80">Jatin paid ₹260</div>
-                                </div>
-                                <div className="text-[10px] font-medium uppercase tracking-wider text-right opacity-80">
-                                    Not concerned
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
             {/* Members Sheet */}
-            <GroupMembersSheet 
-                group={group} 
-                open={isSheetOpen} 
-                onOpenChange={setIsSheetOpen} 
+            <GroupMembersSheet
+                group={group}
+                open={isSheetOpen}
+                onOpenChange={setIsSheetOpen}
+            />
+
+            {/* Expense/Settlement Detail Sheet */}
+            <ExpenseDetailSheet 
+                item={selectedActivity} 
+                groupName={group.name}
+                open={isDetailOpen}
+                onOpenChange={setIsDetailOpen}
+                onDelete={handleDeleteActivity}
+                onEdit={handleEditActivity}
             />
         </div>
     )

@@ -34,6 +34,7 @@ import { InviteMemberDialog } from "./InviteMemberDialog"
 import { useAuthStore } from "@/store/auth-store"
 import { useNavigate } from "react-router-dom"
 import { toast } from "@/lib/toast"
+import { formatCurrency, getInitials } from "@/lib/format"
 
 interface GroupMembersSheetProps {
     group: Group
@@ -68,7 +69,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
         if (!group.permissions?.can_remove_members) return false
         
         // Cannot remove yourself (use Leave instead)
-        if (currentUser?.email === targetMember.user_email) return false
+        if (currentUser?.email === targetMember.user_info.email) return false
         
         // Cannot remove an owner (only they can transfer)
         if (targetMember.role === 'owner') return false
@@ -81,7 +82,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
     const canUpdateRole = (targetMember) => {
         if (!group.permissions?.can_update_roles) return false
-        if (currentUser?.email === targetMember.user_email) return false
+        if (currentUser?.email === targetMember.user_info.email) return false
         if (targetMember.role === 'owner') return false
         return true
     }
@@ -204,15 +205,15 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                             <div key={member.id} className="flex items-center justify-between group">
                                                 <div className="flex items-center gap-4">
                                                     <Avatar className="size-11 border-none shadow-sm">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_email}`} />
+                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
                                                         <AvatarFallback className="bg-indigo-50 text-indigo-700 font-bold">
-                                                            {member.full_name?.charAt(0) || 'U'}
+                                                            {getInitials(member.user_info.name)}
                                                         </AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-[15px] font-bold text-slate-900">{member.full_name}</span>
-                                                            {member.user_email === currentUser?.email && (
+                                                            <span className="text-[15px] font-bold text-slate-900">{member.user_info.name}</span>
+                                                            {member.user_info.email === currentUser?.email && (
                                                                 <div className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter shadow-sm">
                                                                     You
                                                                 </div>
@@ -264,15 +265,15 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                             <div key={member.id} className="flex items-center justify-between group">
                                                 <div className="flex items-center gap-4">
                                                     <Avatar className="size-11 border-none shadow-sm">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_email}`} />
+                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
                                                         <AvatarFallback className="bg-indigo-50 text-indigo-700 font-bold">
-                                                            {member.full_name?.charAt(0) || 'U'}
+                                                            {getInitials(member.user_info.name)}
                                                         </AvatarFallback>
                                                     </Avatar>
                                                     <div className="flex flex-col">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="text-[15px] font-bold text-slate-900">{member.full_name}</span>
-                                                            {member.user_email === currentUser?.email && (
+                                                            <span className="text-[15px] font-bold text-slate-900">{member.user_info.name}</span>
+                                                            {member.user_info.email === currentUser?.email && (
                                                                 <div className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter shadow-sm">
                                                                     You
                                                                 </div>
@@ -295,9 +296,9 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                         <div className="flex flex-col items-end">
                                                             {/* Mock logic for the demo visual */}
                                                             {member.id % 3 === 0 ? (
-                                                                <span className="text-[13px] font-bold text-emerald-500">Gets back ₹14.35</span>
+                                                                <span className="text-[13px] font-bold text-emerald-500">Gets back {formatCurrency(14.35)}</span>
                                                             ) : member.id % 3 === 1 ? (
-                                                                <span className="text-[13px] font-bold text-rose-500">Owes ₹23.00</span>
+                                                                <span className="text-[13px] font-bold text-rose-500">Owes {formatCurrency(23.00)}</span>
                                                             ) : (
                                                                 <span className="text-[13px] font-bold text-slate-400">Settled up</span>
                                                             )}

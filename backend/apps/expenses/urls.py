@@ -1,3 +1,19 @@
 from django.urls import path
 
-urlpatterns = []
+from .views import (
+    CreateExpenseView,
+    ExpenseDetailView,
+    CreateSettlementView,
+    SettlementDetailView,
+    GroupActivityFeedView,
+)
+
+urlpatterns = [
+    # Expenses
+    path("groups/<int:group_id>/create/", CreateExpenseView.as_view()),
+    path("<int:expense_id>/", ExpenseDetailView.as_view()),
+    # Settlements
+    path("groups/<int:group_id>/settlements/create/", CreateSettlementView.as_view()),
+    path("settlements/<int:settlement_id>/", SettlementDetailView.as_view()),
+    path("groups/<int:group_id>/activities/", GroupActivityFeedView.as_view()),
+]

@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Controller, useForm } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { useNavigate } from "react-router-dom"
 import { GoogleLogin } from "@react-oauth/google"
@@ -98,60 +98,33 @@ export function LoginForm() {
           onSubmit={form.handleSubmit(onSubmit)}
         >
           <FieldGroup>
-            <Controller
-              name="email"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="login-email">
-                    Email
-                  </FieldLabel>
+            <Field data-invalid={form.formState.errors.email}>
+              <FieldLabel htmlFor="login-email">Email</FieldLabel>
+              <Input
+                {...form.register("email")}
+                id="login-email"
+                type="text"
+                placeholder="m@example.com"
+                autoComplete="email"
+              />
+              {form.formState.errors.email && <FieldError errors={[form.formState.errors.email]} />}
+            </Field>
 
-                  <Input
-                    {...field}
-                    id="login-email"
-                    type="text"
-                    placeholder="m@example.com"
-                    autoComplete="email"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-
-            <Controller
-              name="password"
-              control={form.control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <div className="flex item-center">
-                    <FieldLabel htmlFor="login-password">
-                      Password
-                    </FieldLabel>
-                    <a
-                      href="#"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
-                    >
-                      Forgot your password?
-                    </a>
-                  </div>
-
-                  <Input
-                    {...field}
-                    id="login-password"
-                    type="password"
-                    autoComplete="current-password"
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+            <Field data-invalid={form.formState.errors.password}>
+              <div className="flex item-center">
+                <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                <a href="#" className="ml-auto text-sm underline-offset-4 hover:underline">
+                  Forgot your password?
+                </a>
+              </div>
+              <Input
+                {...form.register("password")}
+                id="login-password"
+                type="password"
+                autoComplete="current-password"
+              />
+              {form.formState.errors.password && <FieldError errors={[form.formState.errors.password]} />}
+            </Field>
             <div className="flex flex-col gap-3 pt-2">
               <Button
                 type="submit"

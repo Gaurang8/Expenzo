@@ -2,18 +2,15 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import (
-    Expense,
-    ExpensePayer,
-    ExpenseParticipant,
-)
+from .models import Expense, ExpensePayer, ExpenseParticipant, Settlement
 
 from .enums import SplitType
 
 
-class ExpensePayerSerializer(
-    serializers.Serializer
-):
+from apps.common.serializers import UserInfoSerializer
+
+
+class ExpensePayerSerializer(serializers.Serializer):
 
     user = serializers.IntegerField()
 
@@ -23,9 +20,7 @@ class ExpensePayerSerializer(
     )
 
 
-class ExpenseParticipantSerializer(
-    serializers.Serializer
-):
+class ExpenseParticipantSerializer(serializers.Serializer):
 
     user = serializers.IntegerField()
 
@@ -42,13 +37,9 @@ class ExpenseParticipantSerializer(
     )
 
 
-class CreateExpenseSerializer(
-    serializers.Serializer
-):
+class CreateExpenseSerializer(serializers.Serializer):
 
-    title = serializers.CharField(
-        max_length=255,
-    )
+    title = serializers.CharField(max_length=255)
 
     description = serializers.CharField(
         required=False,
@@ -60,108 +51,78 @@ class CreateExpenseSerializer(
         decimal_places=2,
     )
 
-    currency = serializers.CharField(
-        default="INR",
-    )
+    currency = serializers.CharField(default="INR")
 
-    split_type = serializers.ChoiceField(
-        choices=SplitType.choices,
-    )
+    split_type = serializers.ChoiceField(choices=SplitType.choices)
 
     expense_date = serializers.DateTimeField()
 
-    payers = ExpensePayerSerializer(
-        many=True,
+    payers = ExpensePayerSerializer(many=True)
+
+    participants = ExpenseParticipantSerializer(many=True)
+
+
+class CreateSettlementSerializer(serializers.Serializer):
+
+    paid_by = serializers.IntegerField()
+    paid_to = serializers.IntegerField()
+
+    amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
     )
 
-    participants = (
-        ExpenseParticipantSerializer(
-            many=True,
-        )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
     )
 
-class ExpenseDetailPayerSerializer(
-    serializers.ModelSerializer
-):
+    settled_at = serializers.DateTimeField()
 
-    user_email = serializers.EmailField(
-        source="user.email",
-        read_only=True,
-    )
 
-    user_name = serializers.CharField(
-        source="user.name",
-        read_only=True,
-    )
+# ─── Detail serializers (read) ─────────────────────────────────────────────────
+
+
+class ExpenseDetailPayerSerializer(serializers.ModelSerializer):
+
+    user_info = UserInfoSerializer(source="user", read_only=True)
 
     class Meta:
         model = ExpensePayer
-
         fields = (
             "id",
             "user",
-            "user_email",
-            "user_name",
+            "user_info",
             "paid_amount",
         )
 
 
-class ExpenseDetailParticipantSerializer(
-    serializers.ModelSerializer
-):
+class ExpenseDetailParticipantSerializer(serializers.ModelSerializer):
 
-    user_email = serializers.EmailField(
-        source="user.email",
-        read_only=True,
-    )
-
-    user_name = serializers.CharField(
-        source="user.name",
-        read_only=True,
-    )
+    user_info = UserInfoSerializer(source="user", read_only=True)
 
     class Meta:
         model = ExpenseParticipant
-
         fields = (
             "id",
             "user",
-            "user_email",
-            "user_name",
+            "user_info",
             "owed_amount",
             "percentage",
             "is_settled",
         )
 
 
-class ExpenseDetailSerializer(
-    serializers.ModelSerializer
-):
+class ExpenseDetailSerializer(serializers.ModelSerializer):
 
-    payers = (
-        ExpenseDetailPayerSerializer(
-            many=True,
-            read_only=True,
-        )
-    )
+    payers = ExpenseDetailPayerSerializer(many=True, read_only=True)
 
-    participants = (
-        ExpenseDetailParticipantSerializer(
-            many=True,
-            read_only=True,
-        )
-    )
+    participants = ExpenseDetailParticipantSerializer(many=True, read_only=True)
 
-    created_by_email = (
-        serializers.EmailField(
-            source="created_by.email",
-            read_only=True,
-        )
-    )
+    created_by_info = UserInfoSerializer(source="created_by", read_only=True)
 
     class Meta:
         model = Expense
-
         fields = (
             "id",
             "group",
@@ -172,8 +133,34 @@ class ExpenseDetailSerializer(
             "split_type",
             "expense_date",
             "created_by",
-            "created_by_email",
+            "created_by_info",
             "payers",
             "participants",
+            "created_at",
+        )
+
+
+class SettlementDetailSerializer(serializers.ModelSerializer):
+
+    paid_by_info = UserInfoSerializer(source="paid_by", read_only=True)
+
+    paid_to_info = UserInfoSerializer(source="paid_to", read_only=True)
+
+    created_by_info = UserInfoSerializer(source="created_by", read_only=True)
+
+    class Meta:
+        model = Settlement
+        fields = (
+            "id",
+            "group",
+            "paid_by",
+            "paid_by_info",
+            "paid_to",
+            "paid_to_info",
+            "created_by",
+            "created_by_info",
+            "amount",
+            "description",
+            "settled_at",
             "created_at",
         )

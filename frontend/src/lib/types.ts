@@ -28,7 +28,7 @@ export type FieldErrors = Record<string, string[]>
 export interface ApiErrorBody {
   success: false
   message: string
-  errors: FieldErrors | string | null
+  errors: FieldErrors | string | string[] | null
 }
 
 /**
@@ -59,10 +59,13 @@ export type PaginatedResponse<T> = ApiSuccess<PaginatedData<T>>
 export function extractErrorMessage(body: ApiErrorBody): string {
   if (typeof body.errors === "string") return body.errors
 
+  // Array of error strings: ["An expense must involve at least two different members"]
+  if (Array.isArray(body.errors)) return body.errors[0] ?? body.message
+
   if (body.errors && typeof body.errors === "object") {
     const firstKey = Object.keys(body.errors)[0]
     if (firstKey) {
-      const msgs = body.errors[firstKey]
+      const msgs = (body.errors as FieldErrors)[firstKey]
       return msgs[0] ?? body.message
     }
   }

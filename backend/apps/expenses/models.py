@@ -82,10 +82,7 @@ class ExpensePayer(BaseModel):
         )
 
     def __str__(self):
-        return (
-            f"{self.user.email} paid "
-            f"{self.paid_amount}"
-        )
+        return f"{self.user.email} paid " f"{self.paid_amount}"
 
 
 class ExpenseParticipant(BaseModel):
@@ -126,7 +123,50 @@ class ExpenseParticipant(BaseModel):
         )
 
     def __str__(self):
-        return (
-            f"{self.user.email} owes "
-            f"{self.owed_amount}"
-        )
+        return f"{self.user.email} owes " f"{self.owed_amount}"
+
+
+class Settlement(BaseModel):
+
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.CASCADE,
+        related_name="settlements",
+    )
+
+    paid_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="settlements_paid",
+    )
+
+    paid_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="settlements_received",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="created_settlements",
+    )
+
+    amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
+
+    description = models.TextField(
+        blank=True,
+        null=True,
+    )
+
+    settled_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ["-settled_at"]
+
+    def __str__(self):
+
+        return f"{self.paid_by.email} paid " f"{self.paid_to.email}"

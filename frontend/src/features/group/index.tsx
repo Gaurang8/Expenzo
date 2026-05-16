@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 import { useGroups } from "./queries"
 import { CreateGroupDialog } from "./CreateGroupDialog"
-import { format } from "date-fns"
+import { formatDate } from "@/lib/format"
 import { useNavigate, useParams } from "react-router-dom"
 import { cn } from "@/lib/utils"
 import GroupDetail from "./GroupDetail"
@@ -72,7 +72,7 @@ const GroupIndex = () => {
                                                     {group.name}
                                                 </div>
                                                 <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                                                    Last active: {format(new Date(group.created_at), "MMM d")}
+                                                    Last active: {formatDate(group.created_at, "MMM d")}
                                                 </div>
                                             </div>
                                         </div>

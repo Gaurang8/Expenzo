@@ -13,7 +13,7 @@ export interface RegisterPayload {
 // ── Response data (mirrors UserSerializer) ────────────────────────────────────
 
 export interface RegisterData {
-  id: string
+  id: number
   email: string
   full_name: string
 }
