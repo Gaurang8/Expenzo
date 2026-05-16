@@ -14,6 +14,7 @@ export function useCreateExpense(groupId: string | undefined) {
     onSuccess: () => {
       if (groupId) {
         queryClient.invalidateQueries({ queryKey: ["groups", groupId, "activities"] })
+        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "balances"] })
       }
     },
   })
@@ -31,6 +32,7 @@ export function useCreateSettlement(groupId: string | undefined) {
     onSuccess: () => {
       if (groupId) {
         queryClient.invalidateQueries({ queryKey: ["groups", groupId, "activities"] })
+        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "balances"] })
       }
     },
   })
@@ -44,6 +46,7 @@ export function useDeleteExpense(groupId: string | undefined) {
     onSuccess: () => {
       if (groupId) {
         queryClient.invalidateQueries({ queryKey: ["groups", groupId, "activities"] })
+        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "balances"] })
       }
     },
   })
@@ -57,6 +60,7 @@ export function useDeleteSettlement(groupId: string | undefined) {
     onSuccess: () => {
       if (groupId) {
         queryClient.invalidateQueries({ queryKey: ["groups", groupId, "activities"] })
+        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "balances"] })
       }
     },
   })
@@ -73,6 +77,7 @@ export function useUpdateExpense(groupId: string | undefined, expenseId: string 
     onSuccess: () => {
       if (groupId) {
         queryClient.invalidateQueries({ queryKey: ["groups", groupId, "activities"] })
+        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "balances"] })
       }
       if (expenseId) {
         queryClient.invalidateQueries({ queryKey: ["expenses", expenseId] })
@@ -92,6 +97,7 @@ export function useUpdateSettlement(groupId: string | undefined, settlementId: s
     onSuccess: () => {
       if (groupId) {
         queryClient.invalidateQueries({ queryKey: ["groups", groupId, "activities"] })
+        queryClient.invalidateQueries({ queryKey: ["groups", groupId, "balances"] })
       }
       if (settlementId) {
         queryClient.invalidateQueries({ queryKey: ["settlements", settlementId] })

@@ -118,9 +118,30 @@ export interface SettlementActivity {
   paid_by_info: UserInfo
   paid_to: number
   paid_to_info: UserInfo
+  created_by: number
   my_role: "payer" | "receiver" | "none"
 }
 
 export type ActivityItem = ExpenseActivity | SettlementActivity
+
+export interface MemberBalance {
+  user_id: number
+  email: string
+  name: string
+  balance: string
+}
+
+export interface GroupBalance {
+  from_user: number
+  from_user_info: UserInfo
+  to_user: number
+  to_user_info: UserInfo
+  amount: string
+}
+
+export interface GroupBalancesResponse {
+  individual_balances: MemberBalance[]
+  simplified_transactions: GroupBalance[]
+}
 
 export type EditActivity = (Expense & { type: 'expense' }) | (Settlement & { type: 'settlement' })

@@ -18,7 +18,14 @@ from .serializers import (
     CreateSettlementSerializer,
     SettlementDetailSerializer,
 )
-from .services import create_expense, create_settlement, update_expense, update_settlement
+from .services import (
+    create_expense, 
+    create_settlement, 
+    update_expense, 
+    update_settlement,
+    calculate_group_balances,
+    simplify_balances
+)
 from apps.accounts.models import User
 from decimal import Decimal
 
@@ -266,6 +273,7 @@ def _build_settlement_activity(settlement, me_id):
             "name": settlement.paid_to.full_name,
             "email": settlement.paid_to.email,
         },
+        "created_by": settlement.created_by_id,
         # Per-user perspective
         "my_role": my_role,  # "payer" | "receiver" | "none"
     }
@@ -309,4 +317,41 @@ class GroupActivityFeedView(APIView):
         return success_response(
             data=activities,
             message="Activity feed fetched successfully",
+        )
+
+
+class GroupBalancesView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, group_id):
+
+        group = get_object_or_404(Group, id=group_id)
+
+        if not is_group_member(group=group, user=request.user):
+            return error_response(
+                message="You are not a group member",
+                status_code=403,
+            )
+
+        balances = calculate_group_balances(group=group)
+        simplified = simplify_balances(balances)
+
+        # Convert raw balances dict to a sorted list
+        individual_balances = sorted(
+            balances.values(),
+            key=lambda x: x["balance"],
+            reverse=True
+        )
+
+        # Convert Decimal balance to string for JSON serialization
+        for b in individual_balances:
+            b["balance"] = str(b["balance"].quantize(Decimal("0.01")))
+
+        return success_response(
+            data={
+                "individual_balances": individual_balances,
+                "simplified_transactions": simplified,
+            },
+            message="Balances fetched successfully",
         )

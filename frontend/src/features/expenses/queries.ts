@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { api, ApiError } from "@/lib/api"
 import type { ApiSuccess } from "@/lib/types"
-import type { ActivityItem, Expense, Settlement } from "./types"
+import type { ActivityItem, Expense, Settlement, GroupBalance, GroupBalancesResponse } from "./types"
 
 export function useGroupActivities(groupId: string | undefined) {
   return useQuery<ApiSuccess<ActivityItem[]>, ApiError>({
@@ -26,5 +26,12 @@ export function useSettlementDetail(settlementId: string | undefined) {
     queryKey: ["settlements", settlementId],
     queryFn: () => api.get<Settlement>(`/expenses/settlements/${settlementId}/`),
     enabled: !!settlementId,
+  })
+}
+export function useGroupBalances(groupId: string | undefined) {
+  return useQuery<ApiSuccess<GroupBalancesResponse>, ApiError>({
+    queryKey: ["groups", groupId, "balances"],
+    queryFn: () => api.get<GroupBalancesResponse>(`/expenses/groups/${groupId}/balances/`),
+    enabled: !!groupId,
   })
 }

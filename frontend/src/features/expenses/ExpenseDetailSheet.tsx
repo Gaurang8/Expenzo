@@ -27,9 +27,10 @@ interface ExpenseDetailSheetProps {
     onOpenChange: (open: boolean) => void
     onDelete?: (id: number, type: 'expense' | 'settlement') => void
     onEdit?: (item: EditActivity) => void
+    canManageAll?: boolean
 }
 
-export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDelete, onEdit }: ExpenseDetailSheetProps) => {
+export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDelete, onEdit, canManageAll }: ExpenseDetailSheetProps) => {
     const { data: meRes } = useMe()
     const me = meRes?.data
 
@@ -53,6 +54,8 @@ export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDele
     const title = isExpense ? "Expense details" : "Payment details"
     const amount = isExpense ? parseFloat(item.total_amount) : parseFloat(item.amount)
     const date = isExpense ? new Date(item.expense_date) : new Date(item.settled_at)
+
+    const canEditOrDelete = canManageAll || (me && item.created_by === me.id)
 
 
     const participants = (detail as Expense)?.participants || []
@@ -288,24 +291,26 @@ export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDele
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="p-6 pt-2 border-t border-slate-100 bg-slate-50/30 flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            className="flex-1 h-[52px] text-indigo-600 font-bold text-[15px] hover:bg-indigo-50 hover:text-indigo-700 rounded-2xl gap-2"
-                            onClick={() => detail && onEdit?.({ ...detail, type: isExpense ? 'expense' : 'settlement' } as EditActivity)}
-                        >
-                            <Edit2 className="size-4" />
-                            Update
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            className="flex-1 h-[52px] text-rose-500 font-bold text-[15px] hover:bg-rose-50 hover:text-rose-700 rounded-2xl gap-2"
-                            onClick={() => setShowDeleteConfirm(true)}
-                        >
-                            <Trash2 className="size-4" />
-                            Delete payment
-                        </Button>
-                    </div>
+                    {canEditOrDelete && (
+                        <div className="p-6 pt-2 border-t border-slate-100 bg-slate-50/30 flex items-center gap-3">
+                            <Button
+                                variant="ghost"
+                                className="flex-1 h-[52px] text-indigo-600 font-bold text-[15px] hover:bg-indigo-50 hover:text-indigo-700 rounded-2xl gap-2"
+                                onClick={() => detail && onEdit?.({ ...detail, type: isExpense ? 'expense' : 'settlement' } as EditActivity)}
+                            >
+                                <Edit2 className="size-4" />
+                                Update
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className="flex-1 h-[52px] text-rose-500 font-bold text-[15px] hover:bg-rose-50 hover:text-rose-700 rounded-2xl gap-2"
+                                onClick={() => setShowDeleteConfirm(true)}
+                            >
+                                <Trash2 className="size-4" />
+                                {isExpense ? "Delete expense" : "Delete payment"}
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <ConfirmDialog

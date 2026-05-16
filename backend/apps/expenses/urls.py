@@ -6,6 +6,7 @@ from .views import (
     CreateSettlementView,
     SettlementDetailView,
     GroupActivityFeedView,
+    GroupBalancesView,
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
     path("groups/<int:group_id>/settlements/create/", CreateSettlementView.as_view()),
     path("settlements/<int:settlement_id>/", SettlementDetailView.as_view()),
     path("groups/<int:group_id>/activities/", GroupActivityFeedView.as_view()),
+    path("groups/<int:group_id>/balances/", GroupBalancesView.as_view()),
 ]

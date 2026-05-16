@@ -12,6 +12,7 @@ export interface Group {
     can_delete_group: boolean
     can_leave_group: boolean
     can_add_expense: boolean
+    can_manage_expenses: boolean
   }
 }
 

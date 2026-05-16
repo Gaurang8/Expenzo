@@ -283,4 +283,5 @@ def build_group_permissions(membership):
         "can_delete_group": role == GroupRole.OWNER,
         "can_leave_group": role != GroupRole.OWNER,
         "can_add_expense": True,  # For now, all members can add expenses
+        "can_manage_expenses": role in [GroupRole.OWNER, GroupRole.ADMIN],
     }

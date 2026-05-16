@@ -1,8 +1,8 @@
 from decimal import Decimal
-
-from django.db import transaction
-
+from django.db import transaction, models
+from django.db.models import Sum
 from apps.accounts.models import User
+from apps.groups.models import GroupMember
 
 from .models import Expense, ExpensePayer, ExpenseParticipant, Settlement
 
@@ -358,3 +358,98 @@ def update_settlement(
 
     return settlement
 
+
+def calculate_group_balances(*, group):
+    members = GroupMember.objects.filter(group=group).select_related("user")
+    balances = {}
+
+    for member in members:
+        balances[member.user_id] = {
+            "user_id": member.user_id,
+            "email": member.user.email,
+            "name": member.user.full_name,
+            "balance": Decimal("0.00"),
+        }
+
+    payer_totals = (
+        ExpensePayer.objects.filter(expense__group=group)
+        .values("user")
+        .annotate(total_paid=Sum("paid_amount"))
+    )
+
+    for payer in payer_totals:
+        if payer["user"] in balances:
+            balances[payer["user"]]["balance"] += payer["total_paid"]
+
+    participant_totals = (
+        ExpenseParticipant.objects.filter(expense__group=group)
+        .values("user")
+        .annotate(total_owed=Sum("owed_amount"))
+    )
+
+    for participant in participant_totals:
+        if participant["user"] in balances:
+            balances[participant["user"]]["balance"] -= participant["total_owed"]
+
+    settlements = Settlement.objects.filter(group=group)
+
+    for settlement in settlements:
+        if settlement.paid_by_id in balances:
+            balances[settlement.paid_by_id]["balance"] += settlement.amount
+        if settlement.paid_to_id in balances:
+            balances[settlement.paid_to_id]["balance"] -= settlement.amount
+
+    return balances
+
+
+def simplify_balances(balances):
+    creditors = []
+    debtors = []
+
+    for balance_data in balances.values():
+        amount = balance_data["balance"]
+        if amount > 0:
+            creditors.append({**balance_data, "balance": amount})
+        elif amount < 0:
+            debtors.append({**balance_data, "balance": abs(amount)})
+
+    creditors.sort(key=lambda x: x["balance"], reverse=True)
+    debtors.sort(key=lambda x: x["balance"], reverse=True)
+
+    simplified = []
+    creditor_index = 0
+    debtor_index = 0
+
+    while creditor_index < len(creditors) and debtor_index < len(debtors):
+        creditor = creditors[creditor_index]
+        debtor = debtors[debtor_index]
+
+        transfer_amount = min(creditor["balance"], debtor["balance"])
+
+        simplified.append(
+            {
+                "from_user": debtor["user_id"],
+                "from_user_info": {
+                    "id": debtor["user_id"],
+                    "email": debtor["email"],
+                    "name": debtor["name"],
+                },
+                "to_user": creditor["user_id"],
+                "to_user_info": {
+                    "id": creditor["user_id"],
+                    "email": creditor["email"],
+                    "name": creditor["name"],
+                },
+                "amount": str(transfer_amount.quantize(Decimal("0.01"))),
+            }
+        )
+
+        creditor["balance"] -= transfer_amount
+        debtor["balance"] -= transfer_amount
+
+        if creditor["balance"] == 0:
+            creditor_index += 1
+        if debtor["balance"] == 0:
+            debtor_index += 1
+
+    return simplified

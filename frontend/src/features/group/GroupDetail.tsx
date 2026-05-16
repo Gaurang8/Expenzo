@@ -3,17 +3,19 @@ import { Separator } from "@/components/ui/separator"
 import { Plus, Wallet, ChevronRight, Users, Calendar } from "lucide-react"
 import { useParams } from "react-router-dom"
 import { useGroups, useGroupMembers } from "./queries"
-import { useGroupActivities } from "@/features/expenses/queries"
+import { useGroupActivities, useGroupBalances } from "@/features/expenses/queries"
+import { useMe } from "@/features/auth/queries"
+import { useDeleteExpense, useDeleteSettlement } from "@/features/expenses/mutations"
 import { ExpenseFormDialog } from "@/features/expenses/CreateExpenseDialog"
 import { SettlementFormDialog } from "@/features/expenses/CreateSettlementDialog"
 import { useState } from "react"
 import { GroupMembersSheet } from "./GroupMembersSheet"
 import { ExpenseDetailSheet } from "@/features/expenses/ExpenseDetailSheet"
+import { BalanceBreakdownDialog } from "./BalanceBreakdownDialog"
 import type { Expense, Settlement, EditActivity } from "@/features/expenses/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { ActivityItem, ExpenseActivity, SettlementActivity } from "@/features/expenses/types"
 import { formatCurrency, formatMonthYear, getInitials } from "@/lib/format"
-import { useDeleteExpense, useDeleteSettlement } from "@/features/expenses/mutations"
 import { toast } from "@/lib/toast"
 
 
@@ -143,11 +145,16 @@ const GroupDetail = () => {
     const { groupId } = useParams()
     const { data: groupsRes } = useGroups()
     const { data: membersRes } = useGroupMembers(groupId)
+    const { data: meRes } = useMe()
+    const me = meRes?.data
     const { data: activitiesRes, isLoading: activitiesLoading } = useGroupActivities(groupId)
+    const { data: balancesRes } = useGroupBalances(groupId)
+    const balancesData = balancesRes?.data?.simplified_transactions || []
     const deleteExpense = useDeleteExpense(groupId)
     const deleteSettlement = useDeleteSettlement(groupId)
 
     const [isSheetOpen, setIsSheetOpen] = useState(false)
+    const [isBalancesOpen, setIsBalancesOpen] = useState(false)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
     const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null)
     const [isEditOpen, setIsEditOpen] = useState(false)
@@ -206,13 +213,6 @@ const GroupDetail = () => {
         return dateB.getTime() - dateA.getTime()
     })
 
-    // Mock data for balances (placeholder until balance API is ready)
-    const balances = [
-        { name: "Sahil", amount: 140, type: "owes_you" },
-        { name: "Jatin Kantariya", amount: 250, type: "you_owe" },
-        { name: "Marc Walter", amount: 14.35, type: "owes_you" },
-    ]
-
     return (
         <div className="flex-1 flex flex-col h-screen bg-white overflow-hidden">
             {/* Topbar */}
@@ -239,7 +239,7 @@ const GroupDetail = () => {
                         {/* Members Button */}
                         <Button
                             variant="ghost"
-                            className="h-9 px-3 rounded-lg flex items-center gap-2 hover:bg-slate-50 text-slate-600 font-bold text-sm border border-slate-100"
+                            className="h-9 px-3 rounded-lg flex items-center gap-2 hover:bg-slate-50 text-slate-600 font-bold text-sm border border-slate-100 cursor-pointer"
                             onClick={() => setIsSheetOpen(true)}
                         >
                             <Users className="size-4" />
@@ -260,47 +260,63 @@ const GroupDetail = () => {
 
             {/* Edit Dialogs */}
             {groupId && editingItem?.type === 'expense' && (
-                <ExpenseFormDialog 
-                    groupId={groupId} 
-                    members={members} 
-                    open={isEditOpen} 
-                    onOpenChange={setIsEditOpen} 
+                <ExpenseFormDialog
+                    groupId={groupId}
+                    members={members}
+                    open={isEditOpen}
+                    onOpenChange={setIsEditOpen}
                     initialData={editingItem as unknown as Expense}
                 />
             )}
             {groupId && editingItem?.type === 'settlement' && (
-                <SettlementFormDialog 
-                    groupId={groupId} 
-                    members={members} 
-                    open={isEditOpen} 
-                    onOpenChange={setIsEditOpen} 
+                <SettlementFormDialog
+                    groupId={groupId}
+                    members={members}
+                    open={isEditOpen}
+                    onOpenChange={setIsEditOpen}
                     initialData={editingItem as unknown as Settlement}
                 />
             )}
 
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                 {/* Balances Section */}
-                <div className="mb-8">
-                    <h2 className="text-xs font-bold text-slate-400 tracking-wider mb-4 uppercase">Balances</h2>
-                    <div className="space-y-3">
-                        {balances.map((balance, index) => (
-                            <div key={index} className="flex items-center text-[15px]">
-                                <span className="font-semibold text-slate-700">{balance.type === 'you_owe' ? 'You' : balance.name}</span>
-                                <span className="mx-1.5 text-slate-500">{balance.type === 'you_owe' ? 'owe' : 'owes you'}</span>
-                                <span className="font-semibold text-slate-700">
-                                    {balance.type === 'you_owe' ? balance.name : 'you'}
-                                </span>
-                                <span className={`ml-2 font-bold ${balance.type === 'owes_you' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                    {formatCurrency(balance.amount)}
-                                </span>
-                            </div>
-                        ))}
-                        <button className="flex items-center text-slate-400 hover:text-indigo-600 transition-colors text-sm font-medium mt-4 group">
-                            +5 more
-                            <ChevronRight className="size-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
-                        </button>
+                {balancesData.length > 0 && (
+                    <div className="mb-8">
+                        <h2 className="text-xs font-bold text-slate-400 tracking-wider mb-4 uppercase">Balances</h2>
+                        <div className="space-y-3">
+                            {balancesData.slice(0, 3).map((balance, index) => {
+                                const isYouPayer = me && balance.from_user === me.id
+                                const isYouReceiver = me && balance.to_user === me.id
+
+                                return (
+                                    <div key={index} className="flex items-center text-[15px]">
+                                        <span className="font-semibold text-slate-700">
+                                            {isYouPayer ? 'You' : balance.from_user_info.name}
+                                        </span>
+                                        <span className="mx-1.5 text-slate-500">
+                                            {isYouPayer ? 'owe' : 'owes'}
+                                        </span>
+                                        <span className="font-semibold text-slate-700">
+                                            {isYouReceiver ? 'you' : balance.to_user_info.name}
+                                        </span>
+                                        <span className={`ml-2 font-bold ${isYouReceiver ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                            {formatCurrency(balance.amount)}
+                                        </span>
+                                    </div>
+                                )
+                            })}
+                            {balancesData.length > 3 && (
+                                <button
+                                    onClick={() => setIsBalancesOpen(true)}
+                                    className="flex cursor-pointer items-center text-slate-400 hover:text-indigo-600 transition-colors text-sm font-medium mt-4 group"
+                                >
+                                    +{balancesData.length - 3} more
+                                    <ChevronRight className="size-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 <Separator className="bg-slate-100 mb-8" />
 
@@ -356,13 +372,21 @@ const GroupDetail = () => {
             />
 
             {/* Expense/Settlement Detail Sheet */}
-            <ExpenseDetailSheet 
-                item={selectedActivity} 
+            <ExpenseDetailSheet
+                item={selectedActivity}
                 groupName={group.name}
                 open={isDetailOpen}
                 onOpenChange={setIsDetailOpen}
                 onDelete={handleDeleteActivity}
                 onEdit={handleEditActivity}
+                canManageAll={group.permissions.can_manage_expenses}
+            />
+
+            {/* Balance Breakdown Dialog */}
+            <BalanceBreakdownDialog
+                data={balancesRes?.data}
+                open={isBalancesOpen}
+                onOpenChange={setIsBalancesOpen}
             />
         </div>
     )
