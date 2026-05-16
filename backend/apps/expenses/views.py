@@ -8,6 +8,8 @@ from rest_framework import status
 
 from apps.common.responses import success_response, error_response
 
+from django.core.cache import cache
+
 from apps.groups.models import Group, GroupMember
 
 from .models import Expense, Settlement
@@ -19,12 +21,12 @@ from .serializers import (
     SettlementDetailSerializer,
 )
 from .services import (
-    create_expense, 
-    create_settlement, 
-    update_expense, 
+    create_expense,
+    create_settlement,
+    update_expense,
     update_settlement,
     calculate_group_balances,
-    simplify_balances
+    simplify_balances,
 )
 from apps.accounts.models import User
 from decimal import Decimal
@@ -32,6 +34,19 @@ from decimal import Decimal
 
 def is_group_member(*, group, user):
     return GroupMember.objects.filter(group=group, user=user).exists()
+
+
+def invalidate_group_caches(group_id):
+    cache.delete(f"group_balances_{group_id}")
+
+    version_key = f"group_activities_version_{group_id}"
+    if cache.get(version_key) is None:
+        cache.set(version_key, 2, timeout=None)
+    else:
+        try:
+            cache.incr(version_key)
+        except ValueError:
+            cache.set(version_key, 2, timeout=None)
 
 
 class CreateExpenseView(APIView):
@@ -53,6 +68,8 @@ class CreateExpenseView(APIView):
             created_by=request.user,
             **serializer.validated_data,
         )
+
+        invalidate_group_caches(group_id)
 
         return success_response(
             data=ExpenseDetailSerializer(expense).data,
@@ -90,8 +107,9 @@ class ExpenseDetailView(APIView):
         expense = get_object_or_404(Expense, id=expense_id)
         if not is_group_member(group=expense.group, user=request.user):
             return error_response(message="You are not a group member", status_code=403)
-        
+        group_id = expense.group_id
         expense.delete()
+        invalidate_group_caches(group_id)
         return success_response(message="Expense deleted successfully")
 
     def patch(self, request, expense_id):
@@ -106,6 +124,8 @@ class ExpenseDetailView(APIView):
             expense=expense,
             **serializer.validated_data,
         )
+
+        invalidate_group_caches(expense.group_id)
 
         return success_response(
             data=ExpenseDetailSerializer(expense).data,
@@ -127,7 +147,7 @@ class CreateSettlementView(APIView):
         serializer = CreateSettlementSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        paid_by_id = serializer.validated_data.pop('paid_by')
+        paid_by_id = serializer.validated_data.pop("paid_by")
         paid_by_user = get_object_or_404(User, id=paid_by_id)
 
         settlement = create_settlement(
@@ -136,6 +156,8 @@ class CreateSettlementView(APIView):
             created_by=request.user,
             **serializer.validated_data,
         )
+
+        invalidate_group_caches(group_id)
 
         return success_response(
             data=SettlementDetailSerializer(settlement).data,
@@ -169,8 +191,9 @@ class SettlementDetailView(APIView):
         settlement = get_object_or_404(Settlement, id=settlement_id)
         if not is_group_member(group=settlement.group, user=request.user):
             return error_response(message="You are not a group member", status_code=403)
-        
+        group_id = settlement.group_id
         settlement.delete()
+        invalidate_group_caches(group_id)
         return success_response(message="Settlement deleted successfully")
 
     def patch(self, request, settlement_id):
@@ -185,6 +208,8 @@ class SettlementDetailView(APIView):
             settlement=settlement,
             **serializer.validated_data,
         )
+
+        invalidate_group_caches(settlement.group_id)
 
         return success_response(
             data=SettlementDetailSerializer(settlement).data,
@@ -204,7 +229,7 @@ def _build_expense_activity(expense, me_id):
 
     my_paid = Decimal(my_payer.paid_amount) if my_payer else Decimal("0")
     my_owed = Decimal(my_participant.owed_amount) if my_participant else Decimal("0")
-    my_net = my_paid - my_owed  # positive = group owes me, negative = I owe group
+    my_net = my_paid - my_owed
 
     primary_payer = expense.payers.first()
 
@@ -292,6 +317,20 @@ class GroupActivityFeedView(APIView):
 
         me_id = request.user.id
 
+        # Get current cache version for this group
+        version_key = f"group_activities_version_{group_id}"
+        group_version = cache.get(version_key) or 1
+
+        # Append version to the user-specific cache key
+        cache_key = f"group_activities_{group_id}_user_{me_id}_v{group_version}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return success_response(
+                data=cached_data,
+                message="Activity feed fetched from cache successfully",
+            )
+
         expenses = (
             Expense.objects.filter(group=group)
             .select_related("created_by")
@@ -314,6 +353,9 @@ class GroupActivityFeedView(APIView):
             reverse=True,
         )
 
+        # Cache for 24 hours
+        cache.set(cache_key, activities, timeout=60 * 60 * 24)
+
         return success_response(
             data=activities,
             message="Activity feed fetched successfully",
@@ -334,24 +376,36 @@ class GroupBalancesView(APIView):
                 status_code=403,
             )
 
+        cache_key = f"group_balances_{group_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return success_response(
+                data=cached_data,
+                message="Balances fetched from cache successfully",
+            )
+
         balances = calculate_group_balances(group=group)
         simplified = simplify_balances(balances)
 
         # Convert raw balances dict to a sorted list
         individual_balances = sorted(
-            balances.values(),
-            key=lambda x: x["balance"],
-            reverse=True
+            balances.values(), key=lambda x: x["balance"], reverse=True
         )
 
         # Convert Decimal balance to string for JSON serialization
         for b in individual_balances:
             b["balance"] = str(b["balance"].quantize(Decimal("0.01")))
 
+        data = {
+            "individual_balances": individual_balances,
+            "simplified_transactions": simplified,
+        }
+
+        # Cache for 24 hours
+        cache.set(cache_key, data, timeout=60 * 60 * 24)
+
         return success_response(
-            data={
-                "individual_balances": individual_balances,
-                "simplified_transactions": simplified,
-            },
+            data=data,
             message="Balances fetched successfully",
         )

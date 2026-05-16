@@ -9,3 +9,4 @@ django-filter
 gunicorn
 google-auth
 requests
+django-redis
