@@ -33,6 +33,18 @@ services:
     volumes:
       - redis_data:/data
 
+  worker:
+    build: .
+    container_name: splitwise_celery
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+    env_file:
+      - .env
+
 volumes:
   postgres_data:
   redis_data:

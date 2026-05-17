@@ -86,6 +86,9 @@ def invite_member(
             email=email,
         )
 
+    from .tasks import send_invitation_email_task
+    send_invitation_email_task.delay(invitation.id)
+
     return invitation
 
 @transaction.atomic
@@ -269,6 +272,9 @@ def update_member_role(
 
     member.role = role
     member.save()
+
+    from .tasks import send_role_update_email_task
+    send_role_update_email_task.delay(member.id)
 
     return member
 

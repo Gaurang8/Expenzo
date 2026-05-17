@@ -186,3 +186,14 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID")
+
+# Celery Configuration
+CELERY_BROKER_URL = "redis://redis:6379/2"
+CELERY_RESULT_BACKEND = "redis://redis:6379/3"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+
+# Email Configuration
+# Using console backend for development
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@expanzo.local"

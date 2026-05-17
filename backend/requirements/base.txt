@@ -10,3 +10,4 @@ gunicorn
 google-auth
 requests
 django-redis
+celery
