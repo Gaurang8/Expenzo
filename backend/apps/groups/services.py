@@ -285,6 +285,7 @@ def build_group_permissions(membership):
         "can_invite_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
         "can_remove_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
         "can_update_roles": role == GroupRole.OWNER,
+        "can_update_group": role in [GroupRole.OWNER, GroupRole.ADMIN],
         "can_transfer_ownership": role == GroupRole.OWNER,
         "can_delete_group": role == GroupRole.OWNER,
         "can_leave_group": role != GroupRole.OWNER,

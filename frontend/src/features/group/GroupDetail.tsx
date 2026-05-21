@@ -2,7 +2,9 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Plus, Wallet, ChevronRight, Users, Calendar } from "lucide-react"
 import { useParams } from "react-router-dom"
-import { useGroups, useGroupMembers } from "./queries"
+import { useGroupDetail } from "./queries"
+
+
 import { useGroupActivities, useGroupBalances } from "@/features/expenses/queries"
 import { useMe } from "@/features/auth/queries"
 import { useDeleteExpense, useDeleteSettlement } from "@/features/expenses/mutations"
@@ -143,13 +145,13 @@ function ActivityCard({ item, onClick }: { item: ActivityItem, onClick: () => vo
 
 const GroupDetail = () => {
     const { groupId } = useParams()
-    const { data: groupsRes } = useGroups()
-    const { data: membersRes } = useGroupMembers(groupId)
+    const { group, members, isLoading: groupLoading } = useGroupDetail(groupId)
     const { data: meRes } = useMe()
     const me = meRes?.data
     const { data: activitiesRes, isLoading: activitiesLoading } = useGroupActivities(groupId)
     const { data: balancesRes } = useGroupBalances(groupId)
     const balancesData = balancesRes?.data?.simplified_transactions || []
+
     const deleteExpense = useDeleteExpense(groupId)
     const deleteSettlement = useDeleteSettlement(groupId)
 
@@ -184,18 +186,17 @@ const GroupDetail = () => {
         setIsDetailOpen(false)
     }
 
-    const groups = groupsRes?.data || []
-    const group = groups.find(g => g.id.toString() === groupId)
-    const members = membersRes?.data || []
     const activities = activitiesRes?.data || []
 
-    if (!group) {
+
+    if (groupLoading || !group) {
         return (
             <div className="flex-1 flex items-center justify-center bg-slate-50">
                 <p className="text-slate-500 text-lg font-medium animate-pulse">Loading group details...</p>
             </div>
         )
     }
+
 
     // Group activities by month
     const groupedActivities = activities.reduce((acc, activity) => {

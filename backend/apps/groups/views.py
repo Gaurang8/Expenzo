@@ -1,5 +1,7 @@
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
-from rest_framework import status
+
 from apps.accounts.models import User
 
 from apps.common.responses import (
@@ -54,29 +56,27 @@ from .services import (
 )
 
 
-class GroupListCreateView(APIView):
+class GroupViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GroupSerializer
+    lookup_field = 'id'
+    lookup_url_kwarg = 'group_id'
 
-    def get(self, request):
-        groups = Group.objects.filter(
-            memberships__user=request.user
+    def get_queryset(self):
+        return Group.objects.filter(
+            memberships__user=self.request.user
         ).distinct()
 
-        serializer = GroupSerializer(
-            groups,
-            many=True,
-            context={"request": request},
-        )
-
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
         return success_response(
             data=serializer.data,
             message="Groups fetched successfully",
         )
 
-    def post(self, request):
-        serializer = GroupSerializer(
-            data=request.data,
-        )
-
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         group = create_group(
@@ -85,40 +85,45 @@ class GroupListCreateView(APIView):
         )
 
         return success_response(
-            data=GroupSerializer(group).data,
+            data=GroupSerializer(group, context={"request": request}).data,
             message="Group created successfully",
             status_code=status.HTTP_201_CREATED,
         )
 
-class InviteMemberView(APIView):
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response(data=serializer.data)
 
-    def post(
-        self,
-        request,
-        group_id,
-    ):
-        group = get_object_or_404(
-            Group,
-            id=group_id,
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        membership = GroupMember.objects.filter(group=instance, user=request.user).first()
+        if not membership or membership.role not in ["owner", "admin"]:
+            return error_response(message="Permission denied")
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        
+        return success_response(
+            data=serializer.data,
+            message="Group updated successfully"
         )
+
+    @action(detail=True, methods=['post'])
+    def invite(self, request, group_id=None):
+        group = self.get_object()
 
         if not GroupMember.objects.filter(
             group=group,
             user=request.user,
             role__in=["owner", "admin"],
         ).exists():
+            return error_response(message="Permission denied")
 
-            return error_response(
-                message="Permission denied",
-            )
-
-        serializer = InviteMemberSerializer(
-            data=request.data,
-        )
-
-        serializer.is_valid(
-            raise_exception=True,
-        )
+        serializer = InviteMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         try:
             invitation = invite_member(
@@ -126,18 +131,58 @@ class InviteMemberView(APIView):
                 invited_by=request.user,
                 email=serializer.validated_data["email"],
             )
-
             return success_response(
-                data=GroupInvitationSerializer(
-                    invitation
-                ).data,
+                data=GroupInvitationSerializer(invitation).data,
                 message="Invitation sent",
             )
-
         except ValueError as e:
-            return error_response(
-                message=str(e),
+            return error_response(message=str(e))
+
+    @action(detail=True, methods=['get'])
+    def members(self, request, group_id=None):
+        group = self.get_object()
+        members = get_group_members(group)
+        serializer = GroupMemberSerializer(members, many=True)
+        return success_response(data=serializer.data, message="Members fetched")
+
+    @action(detail=True, methods=['get'])
+    def invitations(self, request, group_id=None):
+        group = self.get_object()
+        invitations = group.invitations.filter(status="pending")
+        serializer = GroupInvitationSerializer(invitations, many=True)
+        return success_response(data=serializer.data, message="Invitations fetched")
+
+    @action(detail=True, methods=['post'])
+    def leave(self, request, group_id=None):
+        group = self.get_object()
+        try:
+            leave_group(group=group, user=request.user)
+            return success_response(message="Left group successfully")
+        except ValueError as e:
+            return error_response(message=str(e))
+
+    @action(detail=True, methods=['post'], url_path='transfer-ownership')
+    def transfer_ownership(self, request, group_id=None):
+        group = self.get_object()
+        serializer = TransferOwnershipSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        target_user = get_object_or_404(
+            User, id=serializer.validated_data["user_id"]
+        )
+
+        try:
+            transfer_ownership(
+                group=group,
+                current_owner=request.user,
+                target_member=target_user,
             )
+            return success_response(message="Ownership transferred")
+        except ValueError as e:
+            return error_response(message=str(e))
+
+
+
 
 class AcceptInvitationView(APIView):
 
@@ -184,55 +229,9 @@ class RejectInvitationView(APIView):
             message="Invitation rejected",
         )
 
-class GroupMembersView(APIView):
 
-    def get(
-        self,
-        request,
-        group_id,
-    ):
-        group = get_object_or_404(
-            Group,
-            id=group_id,
-        )
 
-        members = get_group_members(group)
 
-        serializer = GroupMemberSerializer(
-            members,
-            many=True,
-        )
-
-        return success_response(
-            data=serializer.data,
-            message="Members fetched",
-        )
-
-class GroupInvitationsView(APIView):
-
-    def get(
-        self,
-        request,
-        group_id,
-    ):
-        group = get_object_or_404(
-            Group,
-            id=group_id,
-        )
-
-        invitations = group.invitations.filter(
-            status="pending"
-        )
-
-        serializer = GroupInvitationSerializer(
-            invitations,
-            many=True,
-        )
-
-        return success_response(
-            data=serializer.data,
-            message="Invitations fetched",
-        )
 
 class UserInvitationsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -280,77 +279,9 @@ class RemoveGroupMemberView(APIView):
                 message=str(e),
             )
 
-class LeaveGroupView(APIView):
 
-    def post(
-        self,
-        request,
-        group_id,
-    ):
-        group = get_object_or_404(
-            Group,
-            id=group_id,
-        )
 
-        try:
-            leave_group(
-                group=group,
-                user=request.user,
-            )
 
-            return success_response(
-                message="Left group successfully",
-            )
-
-        except ValueError as e:
-            return error_response(
-                message=str(e),
-            )
-
-class TransferOwnershipView(APIView):
-
-    def post(
-        self,
-        request,
-        group_id,
-    ):
-        group = get_object_or_404(
-            Group,
-            id=group_id,
-        )
-
-        serializer = (
-            TransferOwnershipSerializer(
-                data=request.data
-            )
-        )
-
-        serializer.is_valid(
-            raise_exception=True
-        )
-
-        target_user = get_object_or_404(
-            User,
-            id=serializer.validated_data[
-                "user_id"
-            ]
-        )
-
-        try:
-            transfer_ownership(
-                group=group,
-                current_owner=request.user,
-                target_member=target_user,
-            )
-
-            return success_response(
-                message="Ownership transferred",
-            )
-
-        except ValueError as e:
-            return error_response(
-                message=str(e),
-            )
 
 class UpdateMemberRoleView(APIView):
 

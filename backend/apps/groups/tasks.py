@@ -5,26 +5,32 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
 @shared_task
 def send_invitation_email_task(invitation_id):
     from apps.groups.models import GroupInvitation
     try:
-        invitation = GroupInvitation.objects.get(id=invitation_id)
+        invitation = GroupInvitation.objects.select_related('group', 'invited_by').get(id=invitation_id)
         
-        subject = f"You've been invited to join {invitation.group.name} on Expanzo"
-        message = (
-            f"Hello!\n\n"
-            f"{invitation.invited_by.full_name} has invited you to join the group "
-            f"'{invitation.group.name}' on Expanzo.\n\n"
-            f"Please log in or sign up to accept this invitation.\n\n"
-            f"Thanks,\nThe Expanzo Team"
-        )
+        subject = f"You've been invited to join {invitation.group.name} on Expenzo"
+        
+        context = {
+            'inviter_name': invitation.invited_by.full_name,
+            'group_name': invitation.group.name,
+            'action_url': f"{settings.FRONTEND_URL}/groups/{invitation.group.id}",
+        }
+        
+        html_message = render_to_string('emails/invitation.html', context)
+        plain_message = strip_tags(html_message)
         
         send_mail(
             subject=subject,
-            message=message,
+            message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[invitation.email],
+            html_message=html_message,
             fail_silently=False,
         )
         logger.info(f"Invitation email sent to {invitation.email}")
@@ -32,6 +38,7 @@ def send_invitation_email_task(invitation_id):
         logger.error(f"Invitation with id {invitation_id} not found")
     except Exception as e:
         logger.error(f"Failed to send invitation email: {str(e)}")
+
 
 @shared_task
 def send_role_update_email_task(member_id):

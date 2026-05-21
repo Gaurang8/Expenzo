@@ -8,6 +8,7 @@ export interface Group {
     can_invite_members: boolean
     can_remove_members: boolean
     can_update_roles: boolean
+    can_update_group: boolean
     can_transfer_ownership: boolean
     can_delete_group: boolean
     can_leave_group: boolean

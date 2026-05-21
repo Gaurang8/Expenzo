@@ -7,10 +7,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
     MoreVertical, UserPlus, X, ChevronRight, Users, Shield, Image as ImageIcon,
     DollarSign, Calendar, Edit2, ClipboardCheck, Bell,
-    PieChart, Coins, Download, LogOut, Trash2
+    PieChart, Coins, Download, LogOut, Trash2, Check
 } from "lucide-react"
 import {
     DropdownMenu,
@@ -26,10 +27,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { useGroupMembers, useGroupInvitations } from "./queries"
-import { useAcceptInvitation, useRejectInvitation, useRemoveMember, useLeaveGroup, useTransferOwnership, useUpdateMemberRole } from "./mutations"
+import { useGroupDetail } from "./queries"
+import { useGroupBalances } from "@/features/expenses/queries"
+import { useAcceptInvitation, useRejectInvitation, useGroupMutations } from "./mutations"
+
 import type { Group } from "./types"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { InviteMemberDialog } from "./InviteMemberDialog"
 import { useAuthStore } from "@/store/auth-store"
 import { useNavigate } from "react-router-dom"
@@ -42,26 +45,112 @@ interface GroupMembersSheetProps {
     onOpenChange: (open: boolean) => void
 }
 
+const SettingRow = ({ icon: Icon, label, value, onClick, iconBg = "bg-slate-50", iconColor = "text-slate-400", children }: any) => (
+    <div
+        className={`flex items-center justify-between min-h-[56px] py-2 ${onClick ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'} rounded-xl px-2 -mx-2 transition-all duration-200 group/row`}
+        onClick={onClick}
+    >
+        <div className="flex items-center gap-4">
+            <div className={`size-9 rounded-lg ${iconBg} flex items-center justify-center ${iconColor} ${onClick ? 'group-hover/row:brightness-95' : ''} transition-colors`}>
+                <Icon className="size-5" />
+            </div>
+            <span className="text-[15px] font-bold text-slate-900">{label}</span>
+        </div>
+        <div className="flex items-center gap-3 overflow-hidden">
+            {children || <span className="text-[14px] text-slate-500 font-medium group-hover/row:text-slate-900 transition-colors truncate max-w-[150px]">{value}</span>}
+            {onClick && (
+                <div className="size-7 rounded-full flex items-center justify-center group-hover/row:bg-slate-200/50 transition-all">
+                    <ChevronRight className="size-4 text-slate-300 group-hover/row:text-indigo-600 group-hover/row:translate-x-0.5 transition-all" />
+                </div>
+            )}
+        </div>
+    </div>
+)
+
+
+const EditableSettingRow = ({
+    icon, label, value, isEditing, onEdit, onSave, onCancel, isPending, placeholder, iconBg, iconColor
+}: any) => {
+    const [tempValue, setTempValue] = useState(value)
+
+    useEffect(() => {
+        setTempValue(value)
+    }, [value, isEditing])
+
+    if (isEditing) {
+        return (
+            <div className="flex items-center min-h-[56px] py-1 w-full">
+                <div className="flex-1 relative">
+                    <Input
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        placeholder={placeholder}
+                        className="h-11 pl-3 pr-20 font-bold text-slate-900 focus-visible:ring-indigo-500 bg-white border-2 border-indigo-100 rounded-xl shadow-[0_4px_12px_rgba(79,70,229,0.08)]"
+                        autoFocus
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') onSave(tempValue)
+                            if (e.key === 'Escape') onCancel()
+                        }}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <button
+                            onClick={() => onSave(tempValue)}
+                            disabled={isPending}
+                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                            {isPending ? (
+                                <div className="size-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <Check className="size-4 stroke-[3]" />
+                            )}
+                        </button>
+                        <button
+                            onClick={onCancel}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        >
+                            <X className="size-4 stroke-[3]" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <SettingRow
+            icon={icon}
+            label={label}
+            value={value}
+            onClick={onEdit}
+            iconBg={iconBg}
+            iconColor={iconColor}
+        />
+    )
+}
+
+
 export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersSheetProps) => {
     const navigate = useNavigate()
     const currentUser = useAuthStore((state) => state.user)
-    const { data: membersRes } = useGroupMembers(group.id.toString())
-    const { data: invitationsRes } = useGroupInvitations(group.id.toString())
+    const { members, invitations } = useGroupDetail(group.id.toString())
+    const { data: balancesRes } = useGroupBalances(group.id.toString())
 
     const [isInviteOpen, setIsInviteOpen] = useState(false)
     const [memberToRemove, setMemberToRemove] = useState<number | null>(null)
     const [memberToTransfer, setMemberToTransfer] = useState<{ id: number, user_id: number } | null>(null)
     const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
-
-    const members = membersRes?.data || []
-    const invitations = invitationsRes?.data || []
+    const [editingField, setEditingField] = useState<'name' | 'description' | null>(null)
 
     const acceptMutation = useAcceptInvitation()
     const rejectMutation = useRejectInvitation()
-    const removeMutation = useRemoveMember(group.id.toString())
-    const leaveMutation = useLeaveGroup(group.id.toString())
-    const transferMutation = useTransferOwnership(group.id.toString())
-    const updateRoleMutation = useUpdateMemberRole(group.id.toString())
+    const {
+        removeMember: removeMutation,
+        leaveGroup: leaveMutation,
+        transferOwnership: transferMutation,
+        updateMemberRole: updateRoleMutation,
+        updateGroup: updateGroupMutation
+    } = useGroupMutations(group.id.toString())
+
 
     const currentUserRole = group.current_user_role
 
@@ -140,6 +229,40 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
         updateRoleMutation.mutate({ memberId, role: newRole }, {
             onSuccess: (res) => {
                 toast.success(res?.message || "Role updated successfully")
+            },
+            onError: (err) => {
+                toast.apiError(err)
+            }
+        })
+    }
+
+    const handleUpdateName = (newName: string) => {
+        if (!newName.trim() || newName === group.name) {
+            setEditingField(null)
+            return
+        }
+
+        updateGroupMutation.mutate({ name: newName }, {
+            onSuccess: (res) => {
+                toast.success(res?.message || "Group name updated")
+                setEditingField(null)
+            },
+            onError: (err) => {
+                toast.apiError(err)
+            }
+        })
+    }
+
+    const handleUpdateDescription = (newDescription: string) => {
+        if (newDescription === group.description) {
+            setEditingField(null)
+            return
+        }
+
+        updateGroupMutation.mutate({ description: newDescription }, {
+            onSuccess: (res) => {
+                toast.success(res?.message || "Description updated")
+                setEditingField(null)
             },
             onError: (err) => {
                 toast.apiError(err)
@@ -226,6 +349,36 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                 </div>
 
                                                 <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            {(() => {
+                                                                const userBalance = balancesRes?.data?.individual_balances.find(
+                                                                    (b) => b.user_id === member.user
+                                                                )
+                                                                const balance = parseFloat(userBalance?.balance || "0")
+
+                                                                if (balance > 0) {
+                                                                    return (
+                                                                        <span className="text-[11px] font-bold text-emerald-500 whitespace-nowrap uppercase tracking-tight">
+                                                                            Gets back {formatCurrency(balance)}
+                                                                        </span>
+                                                                    )
+                                                                } else if (balance < 0) {
+                                                                    return (
+                                                                        <span className="text-[11px] font-bold text-rose-500 whitespace-nowrap uppercase tracking-tight">
+                                                                            Owes {formatCurrency(Math.abs(balance))}
+                                                                        </span>
+                                                                    )
+                                                                } else {
+                                                                    return (
+                                                                        <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap uppercase tracking-tight">
+                                                                            Settled up
+                                                                        </span>
+                                                                    )
+                                                                }
+                                                            })()}
+                                                        </div>
+                                                    </div>
                                                     {canRemove(member) ? (
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
@@ -294,14 +447,32 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                 <div className="flex items-center gap-4">
                                                     <div className="text-right">
                                                         <div className="flex flex-col items-end">
-                                                            {/* Mock logic for the demo visual */}
-                                                            {member.id % 3 === 0 ? (
-                                                                <span className="text-[13px] font-bold text-emerald-500">Gets back {formatCurrency(14.35)}</span>
-                                                            ) : member.id % 3 === 1 ? (
-                                                                <span className="text-[13px] font-bold text-rose-500">Owes {formatCurrency(23.00)}</span>
-                                                            ) : (
-                                                                <span className="text-[13px] font-bold text-slate-400">Settled up</span>
-                                                            )}
+                                                            {(() => {
+                                                                const userBalance = balancesRes?.data?.individual_balances.find(
+                                                                    (b) => b.user_id === member.user
+                                                                )
+                                                                const balance = parseFloat(userBalance?.balance || "0")
+
+                                                                if (balance > 0) {
+                                                                    return (
+                                                                        <span className="text-[11px] font-bold text-emerald-500 whitespace-nowrap uppercase tracking-tight">
+                                                                            Gets back {formatCurrency(balance)}
+                                                                        </span>
+                                                                    )
+                                                                } else if (balance < 0) {
+                                                                    return (
+                                                                        <span className="text-[11px] font-bold text-rose-500 whitespace-nowrap uppercase tracking-tight">
+                                                                            Owes {formatCurrency(Math.abs(balance))}
+                                                                        </span>
+                                                                    )
+                                                                } else {
+                                                                    return (
+                                                                        <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap uppercase tracking-tight">
+                                                                            Settled up
+                                                                        </span>
+                                                                    )
+                                                                }
+                                                            })()}
                                                         </div>
                                                     </div>
                                                     {canRemove(member) ? (
@@ -421,63 +592,72 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                         <div className="space-y-4">
                                             <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Group Settings</h3>
                                             <div className="space-y-1">
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <Users className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Group name</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">{group.name}</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
+                                                <EditableSettingRow
+                                                    icon={Users}
+                                                    label="Group name"
+                                                    value={group.name}
+                                                    isEditing={editingField === 'name'}
+                                                    onEdit={group.permissions?.can_update_group ? () => setEditingField('name') : undefined}
+                                                    onCancel={() => setEditingField(null)}
+                                                    onSave={handleUpdateName}
+                                                    isPending={updateGroupMutation.isPending && editingField === 'name'}
+                                                    iconBg="bg-indigo-50"
+                                                    iconColor="text-indigo-600"
+                                                />
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <ImageIcon className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Group avatar</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar className="size-6 border-none shadow-sm">
-                                                            <AvatarImage src={`https://api.dicebear.com/7.x/shapes/svg?seed=${group.name}`} />
-                                                            <AvatarFallback className="bg-indigo-50 text-indigo-700 text-xs font-bold">{group.name.charAt(0)}</AvatarFallback>
-                                                        </Avatar>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <DollarSign className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Currency</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">USD ($)</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <Calendar className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Date format</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">MM/DD/YYYY</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
+                                                <EditableSettingRow
+                                                    icon={Edit2}
+                                                    label="Description"
+                                                    value={group.description || ""}
+                                                    isEditing={editingField === 'description'}
+                                                    onEdit={group.permissions?.can_update_group ? () => setEditingField('description') : undefined}
+                                                    onCancel={() => setEditingField(null)}
+                                                    onSave={handleUpdateDescription}
+                                                    isPending={updateGroupMutation.isPending && editingField === 'description'}
+                                                    placeholder="Add a description..."
+                                                    iconBg="bg-blue-50"
+                                                    iconColor="text-blue-600"
+                                                />
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <DollarSign className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Decimal format</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">2 (1,234.56)</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
+
+
+                                                <SettingRow
+                                                    icon={ImageIcon}
+                                                    label="Group avatar"
+                                                    iconBg="bg-orange-50"
+                                                    iconColor="text-orange-600"
+                                                >
+                                                    <Avatar className="size-7 border-2 border-white shadow-sm">
+                                                        <AvatarImage src={`https://api.dicebear.com/7.x/shapes/svg?seed=${group.name}`} />
+                                                        <AvatarFallback className="bg-indigo-50 text-indigo-700 text-[10px] font-bold">{group.name.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                </SettingRow>
+
+                                                <SettingRow
+                                                    icon={DollarSign}
+                                                    label="Currency"
+                                                    value="USD ($)"
+                                                    iconBg="bg-emerald-50"
+                                                    iconColor="text-emerald-600"
+                                                />
+
+                                                <SettingRow
+                                                    icon={Calendar}
+                                                    label="Date format"
+                                                    value="MM/DD/YYYY"
+                                                    iconBg="bg-purple-50"
+                                                    iconColor="text-purple-600"
+                                                />
+
+                                                <SettingRow
+                                                    icon={DollarSign}
+                                                    label="Decimal format"
+                                                    value="2 (1,234.56)"
+                                                    iconBg="bg-pink-50"
+                                                    iconColor="text-pink-600"
+                                                />
                                             </div>
                                         </div>
 
