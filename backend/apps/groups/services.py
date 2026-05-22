@@ -20,6 +20,13 @@ from .enums import (
 )
 
 from apps.accounts.models import User
+from apps.notifications.services import (
+    notify_member_removed,
+    notify_member_left,
+    notify_ownership_transfer,
+    notify_role_change
+)
+
 
 
 def create_group(
@@ -139,7 +146,19 @@ def remove_group_member(
     actor,
     member,
 ):
+    from apps.expenses.services import calculate_group_balances
+    
+    balances = calculate_group_balances(group=member.group)
+    member_balance = balances.get(member.user_id, {}).get("balance", 0)
+    
+    if member_balance != 0:
+        raise ValueError(
+            f"Cannot remove member with active balance ({member_balance}). "
+            "Please settle all debts first."
+        )
+
     actor_membership = get_group_member(
+
         group=member.group,
         user=actor,
     )
@@ -166,7 +185,18 @@ def remove_group_member(
             "Use leave group instead"
         )
 
+    notify_member_removed(
+        actor_id=actor.id,
+        member_user_id=member.user_id,
+        member_email=member.user.email,
+        group_id=member.group.id,
+        group_name=member.group.name
+    )
+
     member.delete()
+
+
+
 
 @transaction.atomic
 def leave_group(
@@ -184,7 +214,19 @@ def leave_group(
             "You are not a member"
         )
 
+    from apps.expenses.services import calculate_group_balances
+    
+    balances = calculate_group_balances(group=group)
+    user_balance = balances.get(user.id, {}).get("balance", 0)
+    
+    if user_balance != 0:
+        raise ValueError(
+            f"Cannot leave group with an active balance ({user_balance}). "
+            "Please settle up first."
+        )
+
     if is_owner(membership):
+
         owner_count = GroupMember.objects.filter(
             group=group,
             role=GroupRole.OWNER,
@@ -195,7 +237,20 @@ def leave_group(
                 "Transfer ownership before leaving"
             )
 
+    owner = GroupMember.objects.filter(group=group, role=GroupRole.OWNER).first()
+
+    if owner:
+        notify_member_left(
+            owner_id=owner.user_id,
+            user_email=user.email,
+            group_id=group.id,
+            group_name=group.name
+        )
+
     membership.delete()
+
+
+
 
 @transaction.atomic
 def transfer_ownership(
@@ -244,6 +299,16 @@ def transfer_ownership(
     current_owner_membership.save()
     target_membership.save()
 
+    notify_ownership_transfer(
+        new_owner_id=target_member.id,
+        old_owner_id=current_owner.id,
+        group_id=group.id,
+        group_name=group.name,
+        new_owner_name=target_member.full_name
+    )
+
+
+
 def update_member_role(
     *,
     actor,
@@ -273,10 +338,18 @@ def update_member_role(
     member.role = role
     member.save()
 
-    from .tasks import send_role_update_email_task
-    send_role_update_email_task.delay(member.id)
+    notify_role_change(
+        user_id=member.user_id,
+        actor_id=actor.id,
+        group_id=member.group.id,
+        group_name=member.group.name,
+        user_name=member.user.full_name,
+        new_role=role
+    )
 
     return member
+
+
 
 def build_group_permissions(membership):
     role = membership.role

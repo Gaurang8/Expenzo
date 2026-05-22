@@ -45,7 +45,7 @@ export const SettleUpDialog = ({ groupId, members }: SettleUpDialogProps) => {
   const createSettlement = useCreateSettlement(groupId)
 
   const form = useForm<SettleFormValues>({
-    resolver: zodResolver(settSchema),
+    resolver: zodResolver(settleSchema),
     defaultValues: {
       amount: "",
       description: "",

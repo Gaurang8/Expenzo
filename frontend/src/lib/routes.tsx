@@ -2,13 +2,16 @@ import React from "react"
 import LoginPage from "@/features/login"
 import SignupPage from "@/features/signup"
 import Group from "@/features/group"
+import NotificationsPage from "@/features/notifications"
 
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
   REGISTER: "/register",
   GROUP_DETAIL: "/groups/:groupId",
+  NOTIFICATIONS: "/notifications",
 } as const
+
 
 export type RouteKeys = keyof typeof ROUTES
 export type RoutePaths = typeof ROUTES[RouteKeys]
@@ -49,4 +52,12 @@ export const routesMap: RouteConfig[] = [
     authRequired: true,
     isLayoutEnabled: true,
   },
+  {
+    path: ROUTES.NOTIFICATIONS,
+    component: NotificationsPage,
+    authRequired: true,
+    isLayoutEnabled: true,
+    label: "Notifications",
+  },
 ]
+

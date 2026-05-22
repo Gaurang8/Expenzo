@@ -1,3 +1,4 @@
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   Users,
   LogOut,
@@ -24,7 +25,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,19 +34,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 
 import { useAuthStore } from "@/store/auth-store"
+import { useNotifications } from "@/features/notifications/queries"
+import type { Notification } from "@/features/notifications/types"
+import type { PaginatedData, ApiSuccess } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
-import { useNavigate, useLocation } from "react-router-dom"
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/lib/format"
+
 
 const items = [
   {
     title: "Groups",
     url: ROUTES.HOME,
     icon: Users,
+  },
+  {
+    title: "Notifications",
+    url: ROUTES.NOTIFICATIONS,
+    icon: Bell,
   },
   {
     title: "Activity",
@@ -57,8 +65,13 @@ const items = [
 
 export function AppSidebar() {
   const { user, logout } = useAuthStore()
+  const { data: notificationsRes } = useNotifications()
+  const notifications = notificationsRes?.pages?.flatMap((page: ApiSuccess<PaginatedData<Notification>>) => page.data.results) || ([] as Notification[])
+  const unreadCount = notifications.filter((n: Notification) => !n.is_read).length || 0
+  
   const navigate = useNavigate()
   const location = useLocation()
+
 
 
   const recentActivity = [
@@ -125,12 +138,20 @@ export function AppSidebar() {
                       location.pathname == item.url && "text-indigo-700!"
                     )}
                   >
-                    <a href={item.url}>
-                      <div className="bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center">
-                        <item.icon />
+                    <a href={item.url} className="flex flex-1 items-center justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center">
+                          <item.icon className="size-4" />
+                        </div>
+                        <span>{item.title}</span>
                       </div>
-                      <span>{item.title}</span>
+                      {item.title === "Notifications" && unreadCount > 0 && (
+                        <span className="flex h-5 w-5 mr-4 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
                     </a>
+
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

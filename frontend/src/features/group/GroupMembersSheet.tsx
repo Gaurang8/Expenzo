@@ -32,7 +32,8 @@ import { useGroupBalances } from "@/features/expenses/queries"
 import { useAcceptInvitation, useRejectInvitation, useGroupMutations } from "./mutations"
 
 import type { Group } from "./types"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import type { ReactNode, ElementType } from "react"
 import { InviteMemberDialog } from "./InviteMemberDialog"
 import { useAuthStore } from "@/store/auth-store"
 import { useNavigate } from "react-router-dom"
@@ -45,7 +46,17 @@ interface GroupMembersSheetProps {
     onOpenChange: (open: boolean) => void
 }
 
-const SettingRow = ({ icon: Icon, label, value, onClick, iconBg = "bg-slate-50", iconColor = "text-slate-400", children }: any) => (
+type SettingRowProps = {
+    icon: ElementType
+    label: string
+    value?: ReactNode
+    onClick?: (() => void) | null
+    iconBg?: string
+    iconColor?: string
+    children?: ReactNode
+}
+
+const SettingRow = ({ icon: Icon, label, value, onClick, iconBg = "bg-slate-50", iconColor = "text-slate-400", children }: SettingRowProps) => (
     <div
         className={`flex items-center justify-between min-h-[56px] py-2 ${onClick ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'} rounded-xl px-2 -mx-2 transition-all duration-200 group/row`}
         onClick={onClick}
@@ -68,14 +79,24 @@ const SettingRow = ({ icon: Icon, label, value, onClick, iconBg = "bg-slate-50",
 )
 
 
+type EditableSettingRowProps = {
+    icon: ElementType
+    label: string
+    value: string
+    isEditing: boolean
+    onEdit?: () => void
+    onSave: (value: string) => void
+    onCancel?: () => void
+    isPending?: boolean
+    placeholder?: string
+    iconBg?: string
+    iconColor?: string
+}
+
 const EditableSettingRow = ({
     icon, label, value, isEditing, onEdit, onSave, onCancel, isPending, placeholder, iconBg, iconColor
-}: any) => {
-    const [tempValue, setTempValue] = useState(value)
-
-    useEffect(() => {
-        setTempValue(value)
-    }, [value, isEditing])
+}: EditableSettingRowProps) => {
+    const [tempValue, setTempValue] = useState<string>(value)
 
     if (isEditing) {
         return (
@@ -152,6 +173,15 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
     } = useGroupMutations(group.id.toString())
 
 
+    const getMemberBalance = (userId: number) => {
+        const userBalance = balancesRes?.data?.individual_balances.find(
+            (b) => b.user_id === userId
+        )
+        return parseFloat(userBalance?.balance || "0")
+    }
+
+    const currentUserBalance = currentUser ? getMemberBalance(currentUser.id) : 0
+
     const currentUserRole = group.current_user_role
 
     const canRemove = (targetMember) => {
@@ -168,6 +198,8 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
         return true
     }
+
+
 
     const canUpdateRole = (targetMember) => {
         if (!group.permissions?.can_update_roles) return false
@@ -352,10 +384,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                     <div className="text-right">
                                                         <div className="flex flex-col items-end">
                                                             {(() => {
-                                                                const userBalance = balancesRes?.data?.individual_balances.find(
-                                                                    (b) => b.user_id === member.user
-                                                                )
-                                                                const balance = parseFloat(userBalance?.balance || "0")
+                                                                const balance = getMemberBalance(member.user)
 
                                                                 if (balance > 0) {
                                                                     return (
@@ -379,29 +408,55 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                             })()}
                                                         </div>
                                                     </div>
-                                                    {canRemove(member) ? (
+                                                    {canRemove(member) || canUpdateRole(member) || (group.permissions?.can_transfer_ownership && member.role !== 'owner') ? (
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
                                                                     <MoreVertical className="size-4" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-48 rounded-lg p-1.5">
-                                                                <DropdownMenuItem
-                                                                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50 cursor-pointer font-medium py-2 rounded-md"
-                                                                    onClick={() => handleRemoveMember(member.id)}
-                                                                >
-                                                                    <Trash2 className="size-4 mr-2" />
-                                                                    Remove member
-                                                                </DropdownMenuItem>
+                                                            <DropdownMenuContent align="end" className="w-48 rounded-lg p-1.5 flex flex-col gap-1">
+                                                                {canUpdateRole(member) && (
+                                                                    <DropdownMenuItem
+                                                                        className="text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50 cursor-pointer font-medium py-2 rounded-md"
+                                                                        onClick={() => handleUpdateRole(member.id, member.role === 'admin' ? 'member' : 'admin')}
+                                                                    >
+                                                                        <Shield className="size-4 mr-2" />
+                                                                        {member.role === 'admin' ? 'Remove admin' : 'Make admin'}
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {group.permissions?.can_transfer_ownership && member.role !== 'owner' && (
+                                                                    <DropdownMenuItem
+                                                                        className="text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50 cursor-pointer font-medium py-2 rounded-md"
+                                                                        onClick={() => setMemberToTransfer({ id: member.id, user_id: member.user })}
+                                                                    >
+                                                                        <Users className="size-4 mr-2" />
+                                                                        Make owner
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {canRemove(member) && (
+                                                                    <DropdownMenuItem
+                                                                        disabled={getMemberBalance(member.user) !== 0}
+                                                                        className={`text-rose-600 focus:text-rose-700 focus:bg-rose-50 font-medium py-2 rounded-md ${
+                                                                            getMemberBalance(member.user) !== 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                                                        }`}
+                                                                        onClick={() => {
+                                                                            if (getMemberBalance(member.user) !== 0) {
+                                                                                toast.error("Member must settle their balance before removal.")
+                                                                                return
+                                                                            }
+                                                                            handleRemoveMember(member.id)
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 className="size-4 mr-2" />
+                                                                        Remove member
+                                                                    </DropdownMenuItem>
+                                                                )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
-                                                    ) : (
-                                                        <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-50" disabled>
-                                                            <MoreVertical className="size-4" />
-                                                        </Button>
-                                                    )}
+                                                    ) : null}
                                                 </div>
+
                                             </div>
                                         ))}
 
@@ -448,10 +503,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                     <div className="text-right">
                                                         <div className="flex flex-col items-end">
                                                             {(() => {
-                                                                const userBalance = balancesRes?.data?.individual_balances.find(
-                                                                    (b) => b.user_id === member.user
-                                                                )
-                                                                const balance = parseFloat(userBalance?.balance || "0")
+                                                                const balance = getMemberBalance(member.user)
 
                                                                 if (balance > 0) {
                                                                     return (
@@ -475,7 +527,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                             })()}
                                                         </div>
                                                     </div>
-                                                    {canRemove(member) ? (
+                                                    {canRemove(member) || canUpdateRole(member) || (group.permissions?.can_transfer_ownership && member.role !== 'owner') ? (
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all">
@@ -501,21 +553,29 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                                         Make owner
                                                                     </DropdownMenuItem>
                                                                 )}
-                                                                <DropdownMenuItem
-                                                                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50 cursor-pointer font-medium py-2 rounded-md"
-                                                                    onClick={() => handleRemoveMember(member.id)}
-                                                                >
-                                                                    <Trash2 className="size-4 mr-2" />
-                                                                    Remove member
-                                                                </DropdownMenuItem>
+                                                                {canRemove(member) && (
+                                                                    <DropdownMenuItem
+                                                                        disabled={getMemberBalance(member.user) !== 0}
+                                                                        className={`text-rose-600 focus:text-rose-700 focus:bg-rose-50 font-medium py-2 rounded-md ${
+                                                                            getMemberBalance(member.user) !== 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                                                        }`}
+                                                                        onClick={() => {
+                                                                            if (getMemberBalance(member.user) !== 0) {
+                                                                                toast.error("Member must settle their balance before removal.")
+                                                                                return
+                                                                            }
+                                                                            handleRemoveMember(member.id)
+                                                                        }}
+                                                                    >
+                                                                        <Trash2 className="size-4 mr-2" />
+                                                                        Remove member
+                                                                    </DropdownMenuItem>
+                                                                )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
-                                                    ) : (
-                                                        <Button variant="ghost" size="icon" className="size-8 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-50" disabled>
-                                                            <MoreVertical className="size-4" />
-                                                        </Button>
-                                                    )}
+                                                    ) : null}
                                                 </div>
+
                                             </div>
                                         ))}
                                     </div>
@@ -593,6 +653,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                             <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Group Settings</h3>
                                             <div className="space-y-1">
                                                 <EditableSettingRow
+                                                    key={`editable-Group name-${editingField === 'name' ? 'editing' : 'view'}-${group.name}`}
                                                     icon={Users}
                                                     label="Group name"
                                                     value={group.name}
@@ -608,6 +669,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
 
                                                 <EditableSettingRow
+                                                      key={`editable-Description-${editingField === 'description' ? 'editing' : 'view'}-${group.description || ''}`}
                                                     icon={Edit2}
                                                     label="Description"
                                                     value={group.description || ""}
@@ -745,16 +807,31 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
                                                 {group.permissions?.can_leave_group && (
                                                     <div
-                                                        className="flex items-start gap-4 py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors"
-                                                        onClick={() => setIsLeaveDialogOpen(true)}
+                                                        className={`flex items-start gap-4 py-3 rounded-xl px-2 -mx-2 transition-colors ${
+                                                            currentUserBalance !== 0 
+                                                                ? "opacity-50 cursor-not-allowed bg-slate-50/50" 
+                                                                : "cursor-pointer hover:bg-slate-50"
+                                                        }`}
+                                                        onClick={() => {
+                                                            if (currentUserBalance !== 0) {
+                                                                toast.error("Please settle your balance before leaving the group.")
+                                                                return
+                                                            }
+                                                            setIsLeaveDialogOpen(true)
+                                                        }}
                                                     >
                                                         <LogOut className="size-5 text-slate-400 mt-0.5" />
                                                         <div className="flex flex-col">
                                                             <span className="text-[15px] font-bold text-slate-900">Leave group</span>
-                                                            <span className="text-[13px] text-slate-500">You will no longer be a member</span>
+                                                            <span className="text-[13px] text-slate-500">
+                                                                {currentUserBalance !== 0 
+                                                                    ? `Current balance: ${formatCurrency(currentUserBalance)}`
+                                                                    : "You will no longer be a member"}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 )}
+
 
                                                 {group.permissions?.can_delete_group && (
                                                     <div className="flex items-start gap-4 py-3 cursor-pointer hover:bg-rose-50 rounded-xl px-2 -mx-2 transition-colors mt-2">

@@ -3,6 +3,11 @@ from django.db import transaction, models
 from django.db.models import Sum
 from apps.accounts.models import User
 from apps.groups.models import GroupMember
+from apps.notifications.services import (
+    notify_expense_added,
+    notify_settlement
+)
+
 
 from .models import Expense, ExpensePayer, ExpenseParticipant, Settlement
 
@@ -195,7 +200,6 @@ def create_expense(
     participant_objects = []
 
     for participant in calculated_participants:
-
         participant_objects.append(
             ExpenseParticipant(
                 expense=expense,
@@ -207,7 +211,21 @@ def create_expense(
 
     ExpenseParticipant.objects.bulk_create(participant_objects)
 
+
+    notify_expense_added(
+        group_id=group.id,
+        group_name=group.name,
+        created_by_id=created_by.id,
+        created_by_name=created_by.full_name,
+        title=title,
+        participants=[p["user"] for p in calculated_participants],
+        amount_str=f"{currency} {total_amount}"
+    )
+
+
     return expense
+
+
 
 
 @transaction.atomic
@@ -323,7 +341,18 @@ def create_settlement(
         created_by=created_by,
     )
 
+    notify_settlement(
+        receiver_id=paid_to_user.id,
+        payer_name=paid_by.full_name,
+        amount=f"INR {amount}", # Defaulting to INR as per current model logic
+        group_name=group.name,
+        group_id=group.id
+    )
+
+
     return settlement
+
+
 
 
 @transaction.atomic

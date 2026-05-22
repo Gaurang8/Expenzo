@@ -56,7 +56,9 @@ LOCAL_APPS = [
     "apps.accounts",
     "apps.groups",
     "apps.expenses",
+    "apps.notifications",
 ]
+
 
 INSTALLED_APPS += LOCAL_APPS
 
