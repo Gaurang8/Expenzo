@@ -306,15 +306,13 @@ const GroupDetail = () => {
                                     </div>
                                 )
                             })}
-                            {balancesData.length > 3 && (
-                                <button
-                                    onClick={() => setIsBalancesOpen(true)}
-                                    className="flex cursor-pointer items-center text-slate-400 hover:text-indigo-600 transition-colors text-sm font-medium mt-4 group"
-                                >
-                                    +{balancesData.length - 3} more
-                                    <ChevronRight className="size-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
-                                </button>
-                            )}
+                            <button
+                                onClick={() => setIsBalancesOpen(true)}
+                                className="flex cursor-pointer items-center text-slate-400 hover:text-indigo-600 transition-colors text-sm font-medium mt-4 group"
+                            >
+                                {balancesData.length > 3 ? `+${balancesData.length - 3} more` : "View detailed balances"}
+                                <ChevronRight className="size-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
                         </div>
                     </div>
                 )}

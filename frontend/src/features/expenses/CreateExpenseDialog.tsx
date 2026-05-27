@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -177,7 +177,7 @@ export function ExpenseFormDialog({
     }
 
     const payload: CreateExpensePayload = {
-      title: data.title.trim() || "Expense",
+      title: data.title?.trim() || "Expense",
       expense_date: data.expense_date,
       split_type: data.split_type,
       total_amount: totalPaid.toFixed(2),

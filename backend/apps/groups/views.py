@@ -1,56 +1,37 @@
+from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.common.responses import error_response, success_response
 
-from apps.common.responses import (
-    success_response,
-)
-
-from .models import Group
-from .serializers import GroupSerializer
-from .services import create_group
-from django.shortcuts import get_object_or_404
-
-from rest_framework.permissions import (
-    IsAuthenticated,
-)
-
-from apps.common.responses import (
-    success_response,
-    error_response,
-)
-
-from .models import (
-    Group,
-    GroupInvitation,
-    GroupMember,
-)
-
-from .serializers import (
-    GroupSerializer,
-    GroupMemberSerializer,
-    GroupInvitationSerializer,
-    InviteMemberSerializer,
-    UpdateMemberRoleSerializer,
-    TransferOwnershipSerializer,
-)
-
+from .models import Group, GroupInvitation, GroupMember
 from .selectors import (
-    get_group_members,
-    get_group_member_by_id,
     get_group_member,
-    is_owner,
+    get_group_member_by_id,
+    get_group_members,
     is_admin_or_owner,
+    is_owner,
 )
-
+from .serializers import (
+    GroupInvitationSerializer,
+    GroupMemberSerializer,
+    GroupSerializer,
+    InviteMemberSerializer,
+    TransferOwnershipSerializer,
+    UpdateMemberRoleSerializer,
+)
 from .services import (
-    invite_member,
     accept_invitation,
+    create_group,
+    invite_member,
+    leave_group,
     reject_invitation,
     remove_group_member,
-    leave_group,
     transfer_ownership,
     update_member_role,
 )
@@ -63,9 +44,15 @@ class GroupViewSet(viewsets.ModelViewSet):
     lookup_url_kwarg = 'group_id'
 
     def get_queryset(self):
+        user = self.request.user
+        prefetch_membership = Prefetch(
+            'memberships',
+            queryset=GroupMember.objects.filter(user=user),
+            to_attr='user_membership'
+        )
         return Group.objects.filter(
-            memberships__user=self.request.user
-        ).distinct()
+            memberships__user=user
+        ).prefetch_related(prefetch_membership).distinct()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -240,7 +227,7 @@ class UserInvitationsView(APIView):
         invitations = GroupInvitation.objects.filter(
             email=request.user.email,
             status="pending"
-        ).order_by("-created_at")
+        ).select_related('group').order_by("-created_at")
 
         serializer = GroupInvitationSerializer(
             invitations,

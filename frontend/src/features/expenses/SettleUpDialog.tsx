@@ -66,9 +66,10 @@ export const SettleUpDialog = ({ groupId, members }: SettleUpDialogProps) => {
   }
 
   const onSubmit = (data: SettleFormValues) => {
-    if (!selectedReceiver) return
+    if (!selectedReceiver || !currentUser) return
 
     createSettlement.mutate({
+      paid_by: currentUser.id,
       paid_to: selectedReceiver.user,
       amount: data.amount,
       description: data.description,

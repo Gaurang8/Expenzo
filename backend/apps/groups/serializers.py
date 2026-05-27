@@ -26,6 +26,9 @@ class GroupSerializer(serializers.ModelSerializer):
         )
 
     def get_current_user_role(self, obj):
+        if hasattr(obj, 'user_membership') and obj.user_membership:
+            return obj.user_membership[0].role
+            
         request = self.context.get("request")
         if not request:
             return None
@@ -33,6 +36,9 @@ class GroupSerializer(serializers.ModelSerializer):
         return membership.role if membership else None
 
     def get_permissions(self, obj):
+        if hasattr(obj, 'user_membership') and obj.user_membership:
+            return build_group_permissions(obj.user_membership[0])
+            
         request = self.context.get("request")
         if not request:
             return {}

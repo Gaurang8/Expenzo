@@ -31,7 +31,7 @@ import { useGroupDetail } from "./queries"
 import { useGroupBalances } from "@/features/expenses/queries"
 import { useAcceptInvitation, useRejectInvitation, useGroupMutations } from "./mutations"
 
-import type { Group } from "./types"
+import type { Group, GroupMember } from "./types"
 import { useState } from "react"
 import type { ReactNode, ElementType } from "react"
 import { InviteMemberDialog } from "./InviteMemberDialog"
@@ -59,7 +59,7 @@ type SettingRowProps = {
 const SettingRow = ({ icon: Icon, label, value, onClick, iconBg = "bg-slate-50", iconColor = "text-slate-400", children }: SettingRowProps) => (
     <div
         className={`flex items-center justify-between min-h-[56px] py-2 ${onClick ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default'} rounded-xl px-2 -mx-2 transition-all duration-200 group/row`}
-        onClick={onClick}
+        onClick={onClick || undefined}
     >
         <div className="flex items-center gap-4">
             <div className={`size-9 rounded-lg ${iconBg} flex items-center justify-center ${iconColor} ${onClick ? 'group-hover/row:brightness-95' : ''} transition-colors`}>
@@ -110,7 +110,7 @@ const EditableSettingRow = ({
                         autoFocus
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') onSave(tempValue)
-                            if (e.key === 'Escape') onCancel()
+                            if (e.key === 'Escape' && onCancel) onCancel()
                         }}
                     />
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -184,7 +184,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
     const currentUserRole = group.current_user_role
 
-    const canRemove = (targetMember) => {
+    const canRemove = (targetMember: GroupMember) => {
         if (!group.permissions?.can_remove_members) return false
         
         // Cannot remove yourself (use Leave instead)
@@ -201,7 +201,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
 
 
-    const canUpdateRole = (targetMember) => {
+    const canUpdateRole = (targetMember: GroupMember) => {
         if (!group.permissions?.can_update_roles) return false
         if (currentUser?.email === targetMember.user_info.email) return false
         if (targetMember.role === 'owner') return false
