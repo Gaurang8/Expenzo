@@ -58,7 +58,7 @@ const items = [
   },
   {
     title: "Activity",
-    url: "/activites",
+    url: ROUTES.ACTIVITY,
     icon: History,
   }
 ]
@@ -71,7 +71,6 @@ export function AppSidebar() {
   
   const navigate = useNavigate()
   const location = useLocation()
-
 
 
   const recentActivity = [
@@ -125,7 +124,7 @@ export function AppSidebar() {
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}
                   className={cn(
-                    'border-l-4 border-transparent py-2',
+                    'border-l-4 border-transparent my-1 px-2',
                     location.pathname == item.url && "border-l-4 border-indigo-700"
                   )}
                 >
@@ -134,13 +133,13 @@ export function AppSidebar() {
                     tooltip={item.title}
                     isActive={location.pathname === item.url}
                     className={cn(
-                      "font-semibold! bg-transparent! pl-6 hover:text-indigo-700",
-                      location.pathname == item.url && "text-indigo-700!"
+                      "font-semibold! bg-transparent! pl-6 hover:text-indigo-700 h-full",
+                      location.pathname == item.url && "text-indigo-700! bg-indigo-50! hover:bg-indigo-50!"
                     )}
                   >
                     <a href={item.url} className="flex flex-1 items-center justify-between w-full">
                       <div className="flex items-center gap-2">
-                        <div className="bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center">
+                        <div className={cn("bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center", location.pathname == item.url && "bg-indigo-100 text-indigo-700")}>
                           <item.icon className="size-4" />
                         </div>
                         <span>{item.title}</span>

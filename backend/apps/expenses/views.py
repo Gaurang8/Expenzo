@@ -409,3 +409,60 @@ class GroupBalancesView(APIView):
             data=data,
             message="Balances fetched successfully",
         )
+
+
+class UserActivityFeedView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        me_id = request.user.id
+
+        user_groups = Group.objects.filter(memberships__user=request.user)
+
+        cache_key = f"user_activities_feed_{me_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return success_response(
+                data=cached_data,
+                message="User activity feed fetched from cache successfully",
+            )
+
+        expenses = (
+            Expense.objects.filter(group__in=user_groups)
+            .select_related("created_by", "group")
+            .prefetch_related("payers__user", "participants__user")
+            .order_by("-created_at")[:50]
+        )
+
+        settlements = (
+            Settlement.objects.filter(group__in=user_groups)
+            .select_related("paid_by", "paid_to", "created_by", "group")
+            .order_by("-created_at")[:50]
+        )
+
+        expense_activities = []
+        for e in expenses:
+            act = _build_expense_activity(e, me_id)
+            act["group_name"] = e.group.name
+            expense_activities.append(act)
+
+        settlement_activities = []
+        for s in settlements:
+            act = _build_settlement_activity(s, me_id)
+            act["group_name"] = s.group.name
+            settlement_activities.append(act)
+
+        activities = sorted(
+            chain(expense_activities, settlement_activities),
+            key=lambda x: x["created_at"],
+            reverse=True,
+        )[:50]
+
+        cache.set(cache_key, activities, timeout=60)
+
+        return success_response(
+            data=activities,
+            message="User activity feed fetched successfully",
+        )

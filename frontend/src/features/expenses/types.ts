@@ -89,6 +89,7 @@ export interface ExpenseActivity {
   type: "expense"
   id: number
   group: number
+  group_name?: string
   title: string
   description: string | null
   total_amount: string
@@ -110,6 +111,7 @@ export interface SettlementActivity {
   type: "settlement"
   id: number
   group: number
+  group_name?: string
   amount: string
   description: string | null
   settled_at: string

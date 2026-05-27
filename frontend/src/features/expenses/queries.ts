@@ -13,6 +13,14 @@ export function useGroupActivities(groupId: string | undefined) {
   })
 }
 
+export function useUserActivities() {
+  return useQuery<ApiSuccess<ActivityItem[]>, ApiError>({
+    queryKey: ["user", "activities"],
+    queryFn: () => api.get<ActivityItem[]>(`/expenses/activities/`),
+    staleTime: 30 * 1000,
+  })
+}
+
 
 /** GET /expenses/:expenseId/ */
 export function useExpenseDetail(expenseId: string | undefined) {
