@@ -160,6 +160,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
     const [memberToRemove, setMemberToRemove] = useState<number | null>(null)
     const [memberToTransfer, setMemberToTransfer] = useState<{ id: number, user_id: number } | null>(null)
     const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [editingField, setEditingField] = useState<'name' | 'description' | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -170,7 +171,8 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
         leaveGroup: leaveMutation,
         transferOwnership: transferMutation,
         updateMemberRole: updateRoleMutation,
-        updateGroup: updateGroupMutation
+        updateGroup: updateGroupMutation,
+        deleteGroup: deleteMutation
     } = useGroupMutations(group.id.toString())
 
 
@@ -256,6 +258,23 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                 }
             })
         }
+    }
+
+    const hasAnyActiveBalances = balancesRes?.data?.individual_balances.some(b => parseFloat(b.balance) !== 0) || false
+
+    const confirmDeleteGroup = () => {
+        deleteMutation.mutate(undefined, {
+            onSuccess: () => {
+                toast.success("Group deleted successfully")
+                setIsDeleteDialogOpen(false)
+                onOpenChange(false)
+                navigate('/')
+            },
+            onError: (err) => {
+                toast.apiError(err)
+                setIsDeleteDialogOpen(false)
+            }
+        })
     }
 
     const handleUpdateRole = (memberId: number, newRole: 'admin' | 'member') => {
@@ -844,11 +863,21 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
 
                                                 {group.permissions?.can_delete_group && (
-                                                    <div className="flex items-start gap-4 py-3 cursor-pointer hover:bg-rose-50 rounded-xl px-2 -mx-2 transition-colors mt-2">
+                                                    <div className={`flex items-start gap-4 py-3 rounded-xl px-2 -mx-2 transition-colors mt-2 ${hasAnyActiveBalances ? 'opacity-50 cursor-not-allowed bg-slate-50/50' : 'cursor-pointer hover:bg-rose-50'}`}
+                                                        onClick={() => {
+                                                            if (hasAnyActiveBalances) {
+                                                                toast.error("Cannot delete group. Please ensure all balances are settled first.")
+                                                                return
+                                                            }
+                                                            setIsDeleteDialogOpen(true)
+                                                        }}
+                                                    >
                                                         <Trash2 className="size-5 text-rose-500 mt-0.5" />
                                                         <div className="flex flex-col">
                                                             <span className="text-[15px] font-bold text-rose-600">Delete group</span>
-                                                            <span className="text-[13px] text-rose-500/70">This action cannot be undone</span>
+                                                            <span className="text-[13px] text-rose-500/70">
+                                                                {hasAnyActiveBalances ? "Settle all balances first" : "This action cannot be undone"}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 )}
@@ -913,6 +942,25 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                         </Button>
                         <Button variant="destructive" onClick={confirmLeaveGroup} disabled={leaveMutation.isPending}>
                             {leaveMutation.isPending ? "Leaving..." : "Leave Group"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Group</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this group? This action is permanent and will remove all expenses and members.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDeleteGroup} disabled={deleteMutation.isPending}>
+                            {deleteMutation.isPending ? "Deleting..." : "Delete Group"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

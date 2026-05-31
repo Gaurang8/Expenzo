@@ -5,6 +5,7 @@ export interface Group {
   avatar?: string
   created_at: string
   current_user_role: 'owner' | 'admin' | 'member' | null
+  user_balance: string
   permissions: {
     can_invite_members: boolean
     can_remove_members: boolean

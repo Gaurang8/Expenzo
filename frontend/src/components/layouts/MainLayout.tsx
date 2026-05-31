@@ -1,8 +1,9 @@
 import React from "react"
+import { Outlet } from "react-router-dom"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/AppSidebar"
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
+export function MainLayout() {
   return (
     <SidebarProvider style={{
       "--sidebar-width": "20rem",
@@ -13,7 +14,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           <SidebarTrigger />
           <h2 className="text-lg font-semibold">Expanzo</h2>
         </div>
-        {children}
+        <Outlet />
       </main>
     </SidebarProvider>
   )

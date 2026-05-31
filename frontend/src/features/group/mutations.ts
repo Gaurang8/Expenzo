@@ -121,6 +121,18 @@ export function useUpdateGroup(groupId: string) {
   })
 }
 
+/** DELETE /groups/:groupId/ */
+export function useDeleteGroup(groupId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<ApiSuccess<null>, ApiError, void>({
+    mutationFn: () => api.delete(`/groups/${groupId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+    },
+  })
+}
+
 /**
  * Optimized hook to get all mutations for a group
  */
@@ -131,6 +143,7 @@ export function useGroupMutations(groupId: string) {
   const leaveGroup = useLeaveGroup(groupId)
   const transferOwnership = useTransferOwnership(groupId)
   const updateMemberRole = useUpdateMemberRole(groupId)
+  const deleteGroup = useDeleteGroup(groupId)
 
   return {
     updateGroup,
@@ -138,7 +151,8 @@ export function useGroupMutations(groupId: string) {
     removeMember,
     leaveGroup,
     transferOwnership,
-    updateMemberRole
+    updateMemberRole,
+    deleteGroup
   }
 }
 

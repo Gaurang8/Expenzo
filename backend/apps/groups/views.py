@@ -35,6 +35,7 @@ from .services import (
     remove_group_member,
     transfer_ownership,
     update_member_role,
+    delete_group,
 )
 
 
@@ -112,6 +113,15 @@ class GroupViewSet(viewsets.ModelViewSet):
             data=serializer.data,
             message="Group updated successfully"
         )
+
+    def destroy(self, request, *args, **kwargs):
+        group = self.get_object()
+        try:
+            delete_group(group=group, user=request.user)
+            return success_response(message="Group deleted successfully")
+        except ValueError as e:
+            return error_response(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
+
 
     @action(detail=True, methods=['post'])
     def invite(self, request, group_id=None):

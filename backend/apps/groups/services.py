@@ -364,3 +364,24 @@ def build_group_permissions(membership):
         "can_add_expense": True,  # For now, all members can add expenses
         "can_manage_expenses": role in [GroupRole.OWNER, GroupRole.ADMIN],
     }
+
+
+@transaction.atomic
+def delete_group(*, group, user):
+    membership = get_group_member(group=group, user=user)
+
+    if not membership:
+        raise ValueError("You are not a member of this group")
+
+    if not is_owner(membership):
+        raise ValueError("Only the group owner can delete the group")
+
+    balances = calculate_group_balances(group=group)
+    for balance_data in balances.values():
+        if balance_data.get("balance", 0) != 0:
+            raise ValueError(
+                "Cannot delete group with active balances. "
+                "Please settle all debts before deleting the group."
+            )
+
+    group.delete()

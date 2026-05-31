@@ -146,39 +146,43 @@ export function AppSidebar() {
           <SidebarGroupLabel className="pr-4 pl-8 py-6 font-semibold text-slate-500">MENU</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="">
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}
-                  className={cn(
-                    'border-l-4 border-transparent my-1 px-2',
-                    location.pathname == item.url && "border-l-4 border-indigo-700"
-                  )}
-                >
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={location.pathname === item.url}
+              {items.map((item) => {
+                const isActive = location.pathname === item.url || (item.url === ROUTES.HOME && location.pathname.startsWith('/groups/'))
+
+                return (
+                  <SidebarMenuItem key={item.title}
                     className={cn(
-                      "font-semibold! bg-transparent! pl-6 hover:text-indigo-700 h-full",
-                      location.pathname == item.url && "text-indigo-700! bg-indigo-50! hover:bg-indigo-50!"
+                      'border-l-4 border-transparent my-1 px-2',
+                      isActive && "border-l-4 border-indigo-700"
                     )}
                   >
-                    <a href={item.url} className="flex flex-1 items-center justify-between w-full">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center", location.pathname == item.url && "bg-indigo-100 text-indigo-700")}>
-                          <item.icon className="size-4" />
-                        </div>
-                        <span>{item.title}</span>
-                      </div>
-                      {item.title === "Notifications" && unreadCount > 0 && (
-                        <span className="flex h-5 w-5 mr-4 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={isActive}
+                      className={cn(
+                        "font-semibold! bg-transparent! pl-6 hover:text-indigo-700 h-full",
+                        isActive && "text-indigo-700! bg-indigo-50! hover:bg-indigo-50!"
                       )}
-                    </a>
+                    >
+                      <Link to={item.url} className="flex flex-1 items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center", isActive && "bg-indigo-100 text-indigo-700")}>
+                            <item.icon className="size-4" />
+                          </div>
+                          <span>{item.title}</span>
+                        </div>
+                        {item.title === "Notifications" && unreadCount > 0 && (
+                          <span className="flex h-5 w-5 mr-4 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        )}
+                      </Link>
 
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
