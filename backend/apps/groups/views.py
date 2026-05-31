@@ -17,6 +17,7 @@ from .selectors import (
     get_group_members,
     is_admin_or_owner,
     is_owner,
+    has_setting_permission,
 )
 from .serializers import (
     GroupInvitationSerializer,
@@ -95,10 +96,17 @@ class GroupViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         membership = GroupMember.objects.filter(group=instance, user=request.user).first()
-        if not membership or membership.role not in ["owner", "admin"]:
+        if not membership:
             return error_response(message="Permission denied")
 
         data = request.data.copy()
+        
+        if 'settings' in data:
+            if membership.role not in ["owner", "admin"]:
+                return error_response(message="Permission denied")
+        else:
+            if not has_setting_permission(membership.role, instance.settings.get("update_group", "admin")):
+                return error_response(message="Permission denied")
         
         if 'avatar' in request.FILES:
             file_obj = request.FILES['avatar']
@@ -127,11 +135,8 @@ class GroupViewSet(viewsets.ModelViewSet):
     def invite(self, request, group_id=None):
         group = self.get_object()
 
-        if not GroupMember.objects.filter(
-            group=group,
-            user=request.user,
-            role__in=["owner", "admin"],
-        ).exists():
+        membership = GroupMember.objects.filter(group=group, user=request.user).first()
+        if not membership or not has_setting_permission(membership.role, group.settings.get("invite_members", "admin")):
             return error_response(message="Permission denied")
 
         serializer = InviteMemberSerializer(data=request.data)

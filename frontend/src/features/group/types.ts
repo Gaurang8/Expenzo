@@ -6,6 +6,13 @@ export interface Group {
   created_at: string
   current_user_role: 'owner' | 'admin' | 'member' | null
   user_balance: string
+  settings: {
+    invite_members: 'owner' | 'admin' | 'member'
+    remove_members: 'owner' | 'admin' | 'member'
+    update_group: 'owner' | 'admin' | 'member'
+    add_expense: 'owner' | 'admin' | 'member'
+    manage_expenses: 'owner' | 'admin' | 'member'
+  }
   permissions: {
     can_invite_members: boolean
     can_remove_members: boolean
@@ -45,4 +52,5 @@ export interface CreateGroupPayload {
   name: string
   description?: string
   avatar?: string
+  settings?: Partial<Group['settings']>
 }

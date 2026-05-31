@@ -62,6 +62,11 @@ const items = [
     title: "Activity",
     url: ROUTES.ACTIVITY,
     icon: History,
+  },
+  {
+    title: "Settings",
+    url: ROUTES.SETTINGS,
+    icon: Settings,
   }
 ]
 
@@ -280,19 +285,7 @@ export function AppSidebar() {
                     Upgrade to Pro
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem asChild>
-                    <Link to={ROUTES.SETTINGS} className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell />
-                    Notifications
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

@@ -12,6 +12,7 @@ from .selectors import (
     get_group_member,
     is_admin_or_owner,
     is_owner,
+    has_setting_permission,
 )
 
 from .enums import (
@@ -169,8 +170,9 @@ def remove_group_member(
             "You are not a group member"
         )
 
-    if not is_admin_or_owner(
-        actor_membership
+    if not has_setting_permission(
+        actor_membership.role,
+        member.group.settings.get("remove_members", "admin")
     ):
         raise ValueError(
             "Permission denied"
@@ -352,17 +354,18 @@ def update_member_role(
 
 def build_group_permissions(membership):
     role = membership.role
+    settings = membership.group.settings
 
     return {
-        "can_invite_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
-        "can_remove_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_invite_members": has_setting_permission(role, settings.get("invite_members", "admin")),
+        "can_remove_members": has_setting_permission(role, settings.get("remove_members", "admin")),
         "can_update_roles": role == GroupRole.OWNER,
-        "can_update_group": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_update_group": has_setting_permission(role, settings.get("update_group", "admin")),
         "can_transfer_ownership": role == GroupRole.OWNER,
         "can_delete_group": role == GroupRole.OWNER,
         "can_leave_group": role != GroupRole.OWNER,
-        "can_add_expense": True,  # For now, all members can add expenses
-        "can_manage_expenses": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_add_expense": has_setting_permission(role, settings.get("add_expense", "member")),
+        "can_manage_expenses": has_setting_permission(role, settings.get("manage_expenses", "admin")),
     }
 
 

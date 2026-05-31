@@ -24,6 +24,7 @@ class GroupSerializer(serializers.ModelSerializer):
             "description",
             "avatar",
             "created_at",
+            "settings",
             "permissions",
             "current_user_role",
             "user_balance",

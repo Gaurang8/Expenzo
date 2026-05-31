@@ -11,6 +11,7 @@ from apps.common.responses import success_response, error_response
 from django.core.cache import cache
 
 from apps.groups.models import Group, GroupMember
+from apps.groups.selectors import has_setting_permission
 
 from .models import Expense, Settlement
 
@@ -57,8 +58,12 @@ class CreateExpenseView(APIView):
 
         group = get_object_or_404(Group, id=group_id)
 
-        if not is_group_member(group=group, user=request.user):
+        membership = GroupMember.objects.filter(group=group, user=request.user).first()
+        if not membership:
             return error_response(message="You are not a group member", status_code=403)
+            
+        if not has_setting_permission(membership.role, group.settings.get("add_expense", "member")):
+            return error_response(message="Permission denied to add expense", status_code=403)
 
         serializer = CreateExpenseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -105,8 +110,12 @@ class ExpenseDetailView(APIView):
 
     def delete(self, request, expense_id):
         expense = get_object_or_404(Expense, id=expense_id)
-        if not is_group_member(group=expense.group, user=request.user):
+        membership = GroupMember.objects.filter(group=expense.group, user=request.user).first()
+        if not membership:
             return error_response(message="You are not a group member", status_code=403)
+            
+        if expense.created_by != request.user and not has_setting_permission(membership.role, expense.group.settings.get("manage_expenses", "admin")):
+            return error_response(message="Permission denied to manage expense", status_code=403)
         group_id = expense.group_id
         expense.delete()
         invalidate_group_caches(group_id)
@@ -114,8 +123,12 @@ class ExpenseDetailView(APIView):
 
     def patch(self, request, expense_id):
         expense = get_object_or_404(Expense, id=expense_id)
-        if not is_group_member(group=expense.group, user=request.user):
+        membership = GroupMember.objects.filter(group=expense.group, user=request.user).first()
+        if not membership:
             return error_response(message="You are not a group member", status_code=403)
+            
+        if expense.created_by != request.user and not has_setting_permission(membership.role, expense.group.settings.get("manage_expenses", "admin")):
+            return error_response(message="Permission denied to manage expense", status_code=403)
 
         serializer = CreateExpenseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -9,6 +9,16 @@ from .enums import (
 )
 
 
+def get_default_group_settings():
+    return {
+        "invite_members": "admin",
+        "remove_members": "admin",
+        "update_group": "admin",
+        "add_expense": "member",
+        "manage_expenses": "admin",
+    }
+
+
 class Group(BaseModel):
     name = models.CharField(
         max_length=255,
@@ -28,6 +38,11 @@ class Group(BaseModel):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="created_groups",
+    )
+
+    settings = models.JSONField(
+        default=get_default_group_settings,
+        blank=True,
     )
 
     def __str__(self):

@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
     MoreVertical, UserPlus, X, ChevronRight, Users, Shield, Image as ImageIcon,
-    Edit2, ClipboardCheck, Bell,
-    PieChart, Coins, Download, LogOut, Trash2, Check
+    Edit2, PieChart, Download, LogOut, Trash2, Check
 } from "lucide-react"
 import {
     DropdownMenu,
@@ -753,75 +752,147 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                             </div>
                                         </div>
 
-                                        {/* GROUP PREFERENCES */}
                                         <div className="space-y-4 pt-4 border-t border-slate-100">
                                             <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Group Preferences</h3>
                                             <div className="space-y-1">
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <Users className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Who can add expenses</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">All members</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <Edit2 className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Who can edit expenses</span>
+                                                {/* Add Expenses */}
+                                                    <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
+                                                        <div className="flex items-center gap-4">
+                                                            <PieChart className="size-5 text-slate-400" />
+                                                            <span className="text-[15px] font-bold text-slate-900">Who can add expenses</span>
+                                                        </div>
+                                                        {group.current_user_role !== "member" ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <div className="flex items-center gap-3 cursor-pointer">
+                                                                        <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.add_expense || 'member'}</span>
+                                                                        <ChevronRight className="size-4 text-slate-300" />
+                                                                    </div>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, add_expense: 'member' } })}>Member</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, add_expense: 'admin' } })}>Admin</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, add_expense: 'owner' } })}>Owner</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <div className="flex items-center gap-3 opacity-60">
+                                                                <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.add_expense || 'member'}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">All members</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <ClipboardCheck className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Expense approval</span>
+                                                    {/* Edit Expenses */}
+                                                    <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
+                                                        <div className="flex items-center gap-4">
+                                                            <Edit2 className="size-5 text-slate-400" />
+                                                            <span className="text-[15px] font-bold text-slate-900">Who can edit expenses</span>
+                                                        </div>
+                                                        {group.current_user_role !== "member" ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <div className="flex items-center gap-3 cursor-pointer">
+                                                                        <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.manage_expenses || 'admin'}</span>
+                                                                        <ChevronRight className="size-4 text-slate-300" />
+                                                                    </div>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, manage_expenses: 'member' } })}>Member</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, manage_expenses: 'admin' } })}>Admin</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, manage_expenses: 'owner' } })}>Owner</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <div className="flex items-center gap-3 opacity-60">
+                                                                <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.manage_expenses || 'admin'}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">Off</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <Bell className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Settle up reminders</span>
+                                                    {/* Invite Members */}
+                                                    <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
+                                                        <div className="flex items-center gap-4">
+                                                            <UserPlus className="size-5 text-slate-400" />
+                                                            <span className="text-[15px] font-bold text-slate-900">Who can invite members</span>
+                                                        </div>
+                                                        {group.current_user_role !== "member" ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <div className="flex items-center gap-3 cursor-pointer">
+                                                                        <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.invite_members || 'admin'}</span>
+                                                                        <ChevronRight className="size-4 text-slate-300" />
+                                                                    </div>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, invite_members: 'member' } })}>Member</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, invite_members: 'admin' } })}>Admin</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, invite_members: 'owner' } })}>Owner</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <div className="flex items-center gap-3 opacity-60">
+                                                                <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.invite_members || 'admin'}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="w-[36px] h-[20px] bg-indigo-600 rounded-full flex items-center px-0.5 shadow-inner">
-                                                        <div className="w-[16px] h-[16px] bg-white rounded-full translate-x-[16px] shadow-sm transition-transform" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <PieChart className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Default split method</span>
+                                                    {/* Remove Members */}
+                                                    <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
+                                                        <div className="flex items-center gap-4">
+                                                            <Users className="size-5 text-slate-400" />
+                                                            <span className="text-[15px] font-bold text-slate-900">Who can remove members</span>
+                                                        </div>
+                                                        {group.current_user_role !== "member" ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <div className="flex items-center gap-3 cursor-pointer">
+                                                                        <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.remove_members || 'admin'}</span>
+                                                                        <ChevronRight className="size-4 text-slate-300" />
+                                                                    </div>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, remove_members: 'member' } })}>Member</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, remove_members: 'admin' } })}>Admin</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, remove_members: 'owner' } })}>Owner</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <div className="flex items-center gap-3 opacity-60">
+                                                                <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.remove_members || 'admin'}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[14px] text-slate-500 font-medium">Equally</span>
-                                                        <ChevronRight className="size-4 text-slate-300" />
-                                                    </div>
-                                                </div>
 
-                                                <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <Coins className="size-5 text-slate-400" />
-                                                        <span className="text-[15px] font-bold text-slate-900">Round off amounts</span>
+                                                    {/* Update Group */}
+                                                    <div className="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors">
+                                                        <div className="flex items-center gap-4">
+                                                            <Shield className="size-5 text-slate-400" />
+                                                            <span className="text-[15px] font-bold text-slate-900">Who can edit group info</span>
+                                                        </div>
+                                                        {group.current_user_role !== "member" ? (
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <div className="flex items-center gap-3 cursor-pointer">
+                                                                        <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.update_group || 'admin'}</span>
+                                                                        <ChevronRight className="size-4 text-slate-300" />
+                                                                    </div>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, update_group: 'member' } })}>Member</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, update_group: 'admin' } })}>Admin</DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => updateGroupMutation.mutate({ settings: { ...group.settings, update_group: 'owner' } })}>Owner</DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        ) : (
+                                                            <div className="flex items-center gap-3 opacity-60">
+                                                                <span className="text-[14px] text-slate-500 font-medium capitalize">{group.settings?.update_group || 'admin'}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="w-[36px] h-[20px] bg-slate-200 rounded-full flex items-center px-0.5 shadow-inner">
-                                                        <div className="w-[16px] h-[16px] bg-white rounded-full shadow-sm transition-transform" />
-                                                    </div>
+
                                                 </div>
                                             </div>
-                                        </div>
 
                                         {/* MORE ACTIONS */}
                                         <div className="space-y-4 pt-4 border-t border-slate-100">
@@ -838,8 +909,8 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                 {group.permissions?.can_leave_group && (
                                                     <div
                                                         className={`flex items-start gap-4 py-3 rounded-xl px-2 -mx-2 transition-colors ${currentUserBalance !== 0
-                                                                ? "opacity-50 cursor-not-allowed bg-slate-50/50"
-                                                                : "cursor-pointer hover:bg-slate-50"
+                                                            ? "opacity-50 cursor-not-allowed bg-slate-50/50"
+                                                            : "cursor-pointer hover:bg-slate-50"
                                                             }`}
                                                         onClick={() => {
                                                             if (currentUserBalance !== 0) {
