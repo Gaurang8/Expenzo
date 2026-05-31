@@ -1,16 +1,18 @@
 from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.files.storage import default_storage
+from urllib.parse import urlparse
 import logging
 
 logger = logging.getLogger(__name__)
 
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from apps.groups.models import GroupInvitation, GroupMember
 
 @shared_task
 def send_invitation_email_task(invitation_id):
-    from apps.groups.models import GroupInvitation
     try:
         invitation = GroupInvitation.objects.select_related('group', 'invited_by').get(id=invitation_id)
         
@@ -42,7 +44,6 @@ def send_invitation_email_task(invitation_id):
 
 @shared_task
 def send_role_update_email_task(member_id):
-    from apps.groups.models import GroupMember
     try:
         member = GroupMember.objects.get(id=member_id)
         
@@ -65,3 +66,19 @@ def send_role_update_email_task(member_id):
         logger.error(f"GroupMember with id {member_id} not found")
     except Exception as e:
         logger.error(f"Failed to send role update email: {str(e)}")
+
+
+@shared_task
+def delete_avatar_file_task(avatar_url):
+    if not avatar_url:
+        return
+    path = urlparse(avatar_url).path
+    if path.startswith(settings.MEDIA_URL):
+        relative_path = path[len(settings.MEDIA_URL):]
+        if relative_path and default_storage.exists(relative_path):
+            try:
+                default_storage.delete(relative_path)
+                logger.info(f"Deleted orphaned avatar file: {relative_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete orphaned avatar file {relative_path}: {str(e)}")
+

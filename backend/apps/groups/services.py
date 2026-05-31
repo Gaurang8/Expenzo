@@ -26,6 +26,8 @@ from apps.notifications.services import (
     notify_ownership_transfer,
     notify_role_change
 )
+from apps.expenses.services import calculate_group_balances
+from .tasks import send_invitation_email_task
 
 
 
@@ -34,10 +36,12 @@ def create_group(
     user,
     name,
     description="",
+    avatar=None,
 ):
     group = Group.objects.create(
         name=name,
         description=description,
+        avatar=avatar,
         created_by=user,
     )
 
@@ -93,7 +97,6 @@ def invite_member(
             email=email,
         )
 
-    from .tasks import send_invitation_email_task
     send_invitation_email_task.delay(invitation.id)
 
     return invitation
@@ -146,8 +149,6 @@ def remove_group_member(
     actor,
     member,
 ):
-    from apps.expenses.services import calculate_group_balances
-    
     balances = calculate_group_balances(group=member.group)
     member_balance = balances.get(member.user_id, {}).get("balance", 0)
     
@@ -214,8 +215,6 @@ def leave_group(
             "You are not a member"
         )
 
-    from apps.expenses.services import calculate_group_balances
-    
     balances = calculate_group_balances(group=group)
     user_balance = balances.get(user.id, {}).get("balance", 0)
     

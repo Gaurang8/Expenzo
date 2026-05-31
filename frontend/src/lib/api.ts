@@ -21,9 +21,11 @@ async function request<T>(
   const url = `${BASE_URL}${path}`
   const token = localStorage.getItem("access_token")
 
+  const isFormData = options?.body instanceof FormData
+
   const res = await fetch(url, {
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
@@ -46,9 +48,10 @@ async function request<T>(
 
 export const api = {
   post<T>(path: string, body: unknown, options?: RequestInit) {
+    const isFormData = body instanceof FormData
     return request<T>(path, {
       method: "POST",
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
       ...options,
     })
   },
@@ -58,17 +61,19 @@ export const api = {
   },
 
   patch<T>(path: string, body: unknown, options?: RequestInit) {
+    const isFormData = body instanceof FormData
     return request<T>(path, {
       method: "PATCH",
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
       ...options,
     })
   },
 
   put<T>(path: string, body: unknown, options?: RequestInit) {
+    const isFormData = body instanceof FormData
     return request<T>(path, {
       method: "PUT",
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
       ...options,
     })
   },

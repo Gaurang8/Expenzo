@@ -32,7 +32,7 @@ import { useGroupBalances } from "@/features/expenses/queries"
 import { useAcceptInvitation, useRejectInvitation, useGroupMutations } from "./mutations"
 
 import type { Group, GroupMember } from "./types"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import type { ReactNode, ElementType } from "react"
 import { InviteMemberDialog } from "./InviteMemberDialog"
 import { useAuthStore } from "@/store/auth-store"
@@ -161,6 +161,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
     const [memberToTransfer, setMemberToTransfer] = useState<{ id: number, user_id: number } | null>(null)
     const [isLeaveDialogOpen, setIsLeaveDialogOpen] = useState(false)
     const [editingField, setEditingField] = useState<'name' | 'description' | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const acceptMutation = useAcceptInvitation()
     const rejectMutation = useRejectInvitation()
@@ -300,6 +301,26 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                 toast.apiError(err)
             }
         })
+    }
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            const formData = new FormData()
+            formData.append("avatar", file)
+            updateGroupMutation.mutate(formData, {
+                onSuccess: (res) => {
+                    toast.success(res?.message || "Avatar updated")
+                },
+                onError: (err) => {
+                    toast.apiError(err)
+                }
+            })
+            // Reset input so the same file can be selected again if needed
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ""
+            }
+        }
     }
 
     return (
@@ -688,14 +709,28 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                 <SettingRow
                                                     icon={ImageIcon}
                                                     label="Group avatar"
+                                                    onClick={group.permissions?.can_update_group ? () => fileInputRef.current?.click() : undefined}
                                                     iconBg="bg-orange-50"
                                                     iconColor="text-orange-600"
                                                 >
-                                                    <Avatar className="size-7 border-2 border-white shadow-sm">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/shapes/svg?seed=${group.name}`} />
-                                                        <AvatarFallback className="bg-indigo-50 text-indigo-700 text-[10px] font-bold">{group.name.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="size-7 border-2 border-white shadow-sm">
+                                                            <AvatarImage src={group.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${group.name}`} className="object-cover" />
+                                                            <AvatarFallback className="bg-indigo-50 text-indigo-700 text-[10px] font-bold">{group.name.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                        {updateGroupMutation.isPending && !editingField && (
+                                                            <div className="size-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                                        )}
+                                                    </div>
                                                 </SettingRow>
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    ref={fileInputRef} 
+                                                    className="hidden" 
+                                                    onChange={handleAvatarChange} 
+                                                    disabled={updateGroupMutation.isPending}
+                                                />
 
                                                 <SettingRow
                                                     icon={DollarSign}

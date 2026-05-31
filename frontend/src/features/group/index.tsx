@@ -61,7 +61,7 @@ const GroupIndex = () => {
                                     >
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
-                                                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${group.name}&backgroundColor=f4511e`} />
+                                                <AvatarImage src={group.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${group.name}&backgroundColor=f4511e`} className="object-cover" />
                                                 <AvatarFallback className="bg-indigo-100 text-indigo-700 font-bold">{group.name.charAt(0).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div className="min-w-0">

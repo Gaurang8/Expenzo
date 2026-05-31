@@ -18,6 +18,12 @@ class Group(BaseModel):
         blank=True,
     )
 
+    avatar = models.URLField(
+        blank=True,
+        null=True,
+        max_length=500,
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

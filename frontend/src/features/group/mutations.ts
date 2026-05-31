@@ -7,7 +7,7 @@ import type { Group, CreateGroupPayload, GroupInvitation } from "./types"
 export function useCreateGroup() {
   const queryClient = useQueryClient()
 
-  return useMutation<ApiSuccess<Group>, ApiError, CreateGroupPayload>({
+  return useMutation<ApiSuccess<Group>, ApiError, FormData | CreateGroupPayload>({
     mutationFn: (payload) => api.post<Group>("/groups/", payload),
     onSuccess: () => {
       // Invalidate and refetch groups list
@@ -109,7 +109,7 @@ export function useUpdateMemberRole(groupId: string) {
 export function useUpdateGroup(groupId: string) {
   const queryClient = useQueryClient()
 
-  return useMutation<ApiSuccess<Group>, ApiError, Partial<CreateGroupPayload>>({
+  return useMutation<ApiSuccess<Group>, ApiError, FormData | Partial<CreateGroupPayload>>({
     mutationFn: (payload) => api.patch<Group>(`/groups/${groupId}/`, payload),
     onSuccess: () => {
       // Surgically invalidate only the group metadata, not members/invitations/etc.

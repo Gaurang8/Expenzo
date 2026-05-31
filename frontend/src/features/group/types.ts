@@ -2,6 +2,7 @@ export interface Group {
   id: number
   name: string
   description: string
+  avatar?: string
   created_at: string
   current_user_role: 'owner' | 'admin' | 'member' | null
   permissions: {
@@ -41,4 +42,5 @@ export interface GroupInvitation {
 export interface CreateGroupPayload {
   name: string
   description?: string
+  avatar?: string
 }

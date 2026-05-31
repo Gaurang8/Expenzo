@@ -38,6 +38,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 
 import { useAuthStore } from "@/store/auth-store"
 import { useNotifications } from "@/features/notifications/queries"
+import { useUserActivities } from "@/features/expenses/queries"
+import { useMe } from "@/features/auth/queries"
+import type { SettlementActivity } from "@/features/expenses/types"
 import type { Notification } from "@/features/notifications/types"
 import type { PaginatedData, ApiSuccess } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
@@ -72,37 +75,60 @@ export function AppSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
 
-
-  const recentActivity = [
-    {
-      payee: "You",
-      amount: "₹200",
-      receiver: "Jatin Kantariya",
-      reason: "Lunch at Tower 1",
-      group_name: "Office Friends",
-      date: "May 10",
-      paid_by_me: true
-    },
-    {
-      payee: "Sahil Sutariya",
-      amount: "₹100",
-      receiver: "You",
-      reason: "Bus Tickets",
-      group_name: "Office Friends",
-      date: "May 09",
-      paid_by_me: false
-    },
-    {
-      payee: "Sahil Sutariya",
-      amount: "₹100",
-      receiver: "You",
-      reason: "Bus Tickets",
-      group_name: "Office Friends",
-      date: "May 09",
-      paid_by_me: false
+  const { data: activitiesRes } = useUserActivities()
+  const { data: meRes } = useMe()
+  const meId = meRes?.data?.id
+  const activities = activitiesRes?.data || []
+  
+  const recentActivity = [...activities].sort((a, b) => {
+      const dateA = a.type === 'expense' ? a.expense_date : a.settled_at
+      const dateB = b.type === 'expense' ? b.expense_date : b.settled_at
+      return new Date(dateB).getTime() - new Date(dateA).getTime()
+  }).slice(0, 3).map(item => {
+    if (item.type === "expense") {
+      const isMe = item.primary_payer_info?.id === meId
+      return {
+        id: `exp-${item.id}`,
+        payee: isMe ? "You" : item.primary_payer_info?.name || "Someone",
+        amount: `₹${parseFloat(item.total_amount).toFixed(2)}`,
+        receiver: "the group",
+        reason: item.title,
+        group_name: item.group_name || "Group",
+        date: new Date(item.expense_date).toLocaleDateString("en-US", { month: 'short', day: '2-digit' }),
+        paid_by_me: isMe,
+        action: "paid"
+      }
+    } else {
+      const s = item as SettlementActivity
+      let payee: string
+      let receiver: string
+      let paid_by_me: boolean
+      if (s.my_role === "payer") {
+          payee = "You"
+          receiver = s.paid_to_info.name
+          paid_by_me = true
+      } else if (s.my_role === "receiver") {
+          payee = s.paid_by_info.name
+          receiver = "You"
+          paid_by_me = false
+      } else {
+          payee = s.paid_by_info.name
+          receiver = s.paid_to_info.name
+          paid_by_me = false
+      }
+      return {
+        id: `set-${s.id}`,
+        payee,
+        amount: `₹${parseFloat(s.amount).toFixed(2)}`,
+        receiver,
+        reason: "Settlement",
+        group_name: s.group_name || "Group",
+        date: new Date(s.settled_at).toLocaleDateString("en-US", { month: 'short', day: '2-digit' }),
+        paid_by_me,
+        action: "paid"
+      }
     }
-
-  ]
+  })
 
   const handleLogout = () => {
     logout()
@@ -161,11 +187,11 @@ export function AppSidebar() {
           <SidebarGroupLabel className="pr-4 pl-8 py-4 font-semibold text-slate-500">RECENT ACTIVITY</SidebarGroupLabel>
           <SidebarGroupContent className=" px-4 ">
             {recentActivity?.map((item) => (
-              <div key={item.date} className="px-4 py-3 text-slate-600">
+              <div key={item.id} className="px-4 py-3 text-slate-600">
                 <span className=" text-black font-medium">
                   {item?.payee}
                 </span>
-                &nbsp;loaned&nbsp;
+                &nbsp;{item.action}&nbsp;
                 <span className={
                   cn(
                     item?.paid_by_me ? "text-red-500" : "text-green-500",

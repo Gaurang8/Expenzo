@@ -1,5 +1,6 @@
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+from django.core.files.storage import default_storage
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -63,7 +64,14 @@ class GroupViewSet(viewsets.ModelViewSet):
         )
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        data = request.data.copy()
+        
+        if 'avatar' in request.FILES:
+            file_obj = request.FILES['avatar']
+            file_name = default_storage.save(f"uploads/{file_obj.name}", file_obj)
+            data['avatar'] = request.build_absolute_uri(default_storage.url(file_name))
+            
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
         group = create_group(
@@ -89,7 +97,14 @@ class GroupViewSet(viewsets.ModelViewSet):
         if not membership or membership.role not in ["owner", "admin"]:
             return error_response(message="Permission denied")
 
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        data = request.data.copy()
+        
+        if 'avatar' in request.FILES:
+            file_obj = request.FILES['avatar']
+            file_name = default_storage.save(f"uploads/{file_obj.name}", file_obj)
+            data['avatar'] = request.build_absolute_uri(default_storage.url(file_name))
+
+        serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         
