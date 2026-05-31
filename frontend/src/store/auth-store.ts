@@ -6,6 +6,8 @@ export interface User {
   id: number
   email: string
   full_name: string
+  date_format: string
+  avatar: string | null
 }
 
 interface AuthState {

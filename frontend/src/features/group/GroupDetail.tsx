@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Wallet, ChevronRight, Users, Calendar } from "lucide-react"
+import { Plus, Wallet, ChevronRight, Users, Calendar, Loader2 } from "lucide-react"
 import { useParams } from "react-router-dom"
 import { useGroupDetail } from "./queries"
 
@@ -191,8 +191,8 @@ const GroupDetail = () => {
 
     if (groupLoading || !group) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-50">
-                <p className="text-slate-500 text-lg font-medium animate-pulse">Loading group details...</p>
+            <div className="flex-1 flex items-center justify-center h-full bg-slate-50">
+                <Loader2 className="size-8 animate-spin text-slate-400" />
             </div>
         )
     }
@@ -226,7 +226,7 @@ const GroupDetail = () => {
                         <div className="flex -space-x-2.5">
                             {members.slice(0, 4).map((member) => (
                                 <Avatar key={member.id} className="size-8 border-2 border-white ring-1 ring-slate-100 shadow-sm">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
+                                    <AvatarImage src={member.user_info.avatar || undefined} />
                                     <AvatarFallback className="text-[10px] bg-slate-100">{getInitials(member.user_info.name)}</AvatarFallback>
                                 </Avatar>
                             ))}

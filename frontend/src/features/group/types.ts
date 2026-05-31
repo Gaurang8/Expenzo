@@ -25,6 +25,7 @@ export interface GroupMember {
     id: number
     name: string
     email: string
+    avatar?: string
   }
   role: 'owner' | 'admin' | 'member'
   joined_at: string

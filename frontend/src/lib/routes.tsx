@@ -4,6 +4,7 @@ import SignupPage from "@/features/signup"
 import Group from "@/features/group"
 import NotificationsPage from "@/features/notifications"
 import { RecentActivityPage } from "@/features/activity/RecentActivityPage"
+import SettingsPage from "@/features/settings"
 
 export const ROUTES = {
   HOME: "/",
@@ -12,6 +13,7 @@ export const ROUTES = {
   GROUP_DETAIL: "/groups/:groupId",
   NOTIFICATIONS: "/notifications",
   ACTIVITY: "/activities",
+  SETTINGS: "/settings",
 } as const
 
 
@@ -67,5 +69,12 @@ export const routesMap: RouteConfig[] = [
     authRequired: true,
     isLayoutEnabled: true,
     label: "Recent Activity",
+  },
+  {
+    path: ROUTES.SETTINGS,
+    component: SettingsPage,
+    authRequired: true,
+    isLayoutEnabled: true,
+    label: "Settings",
   },
 ]

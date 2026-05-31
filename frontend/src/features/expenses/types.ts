@@ -4,6 +4,7 @@ export interface UserInfo {
   id: number
   name: string
   email: string
+  avatar?: string
 }
 
 export interface ExpensePayerPayload {
@@ -130,6 +131,7 @@ export interface MemberBalance {
   user_id: number
   email: string
   name: string
+  avatar?: string
   balance: string
 }
 

@@ -3,6 +3,7 @@ import { useMe } from "@/features/auth/queries"
 import { Loader2, ArrowDown, ArrowUp, Wallet, Calendar, ChevronDown } from "lucide-react"
 import type { ActivityItem, SettlementActivity } from "@/features/expenses/types"
 import { Link } from "react-router-dom"
+import { formatDate } from "@/lib/format"
 
 function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undefined }) {
     let iconBgClass: string
@@ -117,11 +118,10 @@ export function RecentActivityPage() {
         return new Date(dateB).getTime() - new Date(dateA).getTime()
     })
     
-    // Group activities by specific dates (e.g., "MAY 29", "MAY 21") instead of month-year
+    // Group activities by specific dates instead of month-year
     const groupedActivities = sortedActivities.reduce((acc, activity) => {
         const dateStr = activity.type === 'expense' ? activity.expense_date : activity.settled_at
-        const d = new Date(dateStr)
-        const dayStr = d.toLocaleDateString("en-US", { month: 'short', day: '2-digit' }).toUpperCase()
+        const dayStr = formatDate(dateStr, meRes?.data?.date_format || 'MMM dd, yyyy').toUpperCase()
         if (!acc[dayStr]) acc[dayStr] = []
         acc[dayStr].push(activity)
         return acc

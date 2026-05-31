@@ -27,6 +27,28 @@ export function formatDate(date: string | Date, pattern = 'MMM d, yyyy') {
 }
 
 /**
+ * Formats a date without the year for compact spaces (like sidebars).
+ * Automatically strips the year portion from the user's preferred format.
+ */
+export function formatShortDate(date: string | Date, userPattern = 'MMM d, yyyy') {
+  const d = typeof date === 'string' ? parseISO(date) : date
+  
+  // Strip year components from common patterns to make a short format
+  let shortPattern = userPattern
+    .replace(/,? yyyy/i, '')
+    .replace(/yyyy-?/, '')
+    .replace(/\/yyyy/, '')
+    .trim()
+    
+  // Fallback if regex missed something
+  if (shortPattern.length === 0 || shortPattern === userPattern) {
+    shortPattern = 'MMM d'
+  }
+  
+  return format(d, shortPattern)
+}
+
+/**
  * Formats a date as 'Month Year' (e.g. May 2026).
  * Useful for grouping activities.
  */

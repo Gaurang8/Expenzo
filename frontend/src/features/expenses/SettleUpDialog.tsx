@@ -138,7 +138,7 @@ export const SettleUpDialog = ({ groupId, members }: SettleUpDialogProps) => {
                     onClick={() => handleSelectReceiver(m)}
                   >
                     <Avatar className="size-10 border-2 border-white shadow-sm">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_info.email}`} />
+                      <AvatarImage src={m.user_info.avatar || undefined} />
                       <AvatarFallback className="bg-slate-100 text-slate-500">{m.user_info.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
@@ -155,7 +155,7 @@ export const SettleUpDialog = ({ groupId, members }: SettleUpDialogProps) => {
             <div className="flex flex-col items-center gap-4 py-4 bg-slate-50 rounded-2xl border border-slate-100 mb-2">
               <div className="flex items-center gap-4">
                 <Avatar className="size-12 border-2 border-white shadow-md">
-                   <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.email}`} />
+                   <AvatarImage src={currentUser?.avatar || undefined} />
                    <AvatarFallback>Y</AvatarFallback>
                 </Avatar>
                 <div className="h-px w-12 bg-slate-200 relative">
@@ -164,7 +164,7 @@ export const SettleUpDialog = ({ groupId, members }: SettleUpDialogProps) => {
                   </div>
                 </div>
                 <Avatar className="size-12 border-2 border-white shadow-md">
-                   <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedReceiver?.user_info.email}`} />
+                   <AvatarImage src={selectedReceiver?.user_info.avatar || undefined} />
                    <AvatarFallback>{selectedReceiver?.user_info.name.charAt(0)}</AvatarFallback>
                 </Avatar>
               </div>

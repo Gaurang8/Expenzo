@@ -1,16 +1,15 @@
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate, useLocation, Link } from "react-router-dom"
 import {
   Users,
   LogOut,
   ChevronsUpDown,
-  CreditCard,
   Bell,
   Sparkles,
-  BadgeCheck,
   History,
   Split,
   ChevronsRight,
-  ChevronsLeft
+  ChevronsLeft,
+  Settings
 } from "lucide-react"
 
 import {
@@ -45,7 +44,7 @@ import type { Notification } from "@/features/notifications/types"
 import type { PaginatedData, ApiSuccess } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
 import { cn } from "@/lib/utils"
-import { getInitials } from "@/lib/format"
+import { getInitials, formatShortDate } from "@/lib/format"
 
 
 const items = [
@@ -71,7 +70,7 @@ export function AppSidebar() {
   const { data: notificationsRes } = useNotifications()
   const notifications = notificationsRes?.pages?.flatMap((page: ApiSuccess<PaginatedData<Notification>>) => page.data.results) || ([] as Notification[])
   const unreadCount = notifications.filter((n: Notification) => !n.is_read).length || 0
-  
+
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -79,11 +78,11 @@ export function AppSidebar() {
   const { data: meRes } = useMe()
   const meId = meRes?.data?.id
   const activities = activitiesRes?.data || []
-  
+
   const recentActivity = [...activities].sort((a, b) => {
-      const dateA = a.type === 'expense' ? a.expense_date : a.settled_at
-      const dateB = b.type === 'expense' ? b.expense_date : b.settled_at
-      return new Date(dateB).getTime() - new Date(dateA).getTime()
+    const dateA = a.type === 'expense' ? a.expense_date : a.settled_at
+    const dateB = b.type === 'expense' ? b.expense_date : b.settled_at
+    return new Date(dateB).getTime() - new Date(dateA).getTime()
   }).slice(0, 3).map(item => {
     if (item.type === "expense") {
       const isMe = item.primary_payer_info?.id === meId
@@ -94,7 +93,7 @@ export function AppSidebar() {
         receiver: "the group",
         reason: item.title,
         group_name: item.group_name || "Group",
-        date: new Date(item.expense_date).toLocaleDateString("en-US", { month: 'short', day: '2-digit' }),
+        date: formatShortDate(item.expense_date, user?.date_format || 'MMM dd, yyyy'),
         paid_by_me: isMe,
         action: "paid"
       }
@@ -104,17 +103,17 @@ export function AppSidebar() {
       let receiver: string
       let paid_by_me: boolean
       if (s.my_role === "payer") {
-          payee = "You"
-          receiver = s.paid_to_info.name
-          paid_by_me = true
+        payee = "You"
+        receiver = s.paid_to_info.name
+        paid_by_me = true
       } else if (s.my_role === "receiver") {
-          payee = s.paid_by_info.name
-          receiver = "You"
-          paid_by_me = false
+        payee = s.paid_by_info.name
+        receiver = "You"
+        paid_by_me = false
       } else {
-          payee = s.paid_by_info.name
-          receiver = s.paid_to_info.name
-          paid_by_me = false
+        payee = s.paid_by_info.name
+        receiver = s.paid_to_info.name
+        paid_by_me = false
       }
       return {
         id: `set-${s.id}`,
@@ -123,7 +122,7 @@ export function AppSidebar() {
         receiver,
         reason: "Settlement",
         group_name: s.group_name || "Group",
-        date: new Date(s.settled_at).toLocaleDateString("en-US", { month: 'short', day: '2-digit' }),
+        date: formatShortDate(s.settled_at, user?.date_format || 'MMM dd, yyyy'),
         paid_by_me,
         action: "paid"
       }
@@ -239,7 +238,7 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user?.full_name} alt={user?.full_name} />
+                    <AvatarImage src={user?.avatar || undefined} alt={user?.full_name} />
                     <AvatarFallback className=" rounded-lg">
                       {getInitials(user?.full_name)}
                     </AvatarFallback>
@@ -259,7 +258,7 @@ export function AppSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user?.full_name} alt={user?.full_name} />
+                      <AvatarImage src={user?.avatar || undefined} alt={user?.full_name} />
                       <AvatarFallback className="rounded-lg">
                         {getInitials(user?.full_name)}
                       </AvatarFallback>
@@ -279,13 +278,11 @@ export function AppSidebar() {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <BadgeCheck />
-                    Account
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <CreditCard />
-                    Billing
+                  <DropdownMenuItem asChild>
+                    <Link to={ROUTES.SETTINGS} className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Bell />

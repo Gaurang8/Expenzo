@@ -62,6 +62,8 @@ class UserSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "full_name",
+            "date_format",
+            "avatar",
         )
 
 class GoogleLoginSerializer(serializers.Serializer):

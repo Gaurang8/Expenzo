@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
     MoreVertical, UserPlus, X, ChevronRight, Users, Shield, Image as ImageIcon,
-    DollarSign, Calendar, Edit2, ClipboardCheck, Bell,
+    Edit2, ClipboardCheck, Bell,
     PieChart, Coins, Download, LogOut, Trash2, Check
 } from "lucide-react"
 import {
@@ -187,10 +187,10 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
     const canRemove = (targetMember: GroupMember) => {
         if (!group.permissions?.can_remove_members) return false
-        
+
         // Cannot remove yourself (use Leave instead)
         if (currentUser?.email === targetMember.user_info.email) return false
-        
+
         // Cannot remove an owner (only they can transfer)
         if (targetMember.role === 'owner') return false
 
@@ -381,7 +381,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                             <div key={member.id} className="flex items-center justify-between group">
                                                 <div className="flex items-center gap-4">
                                                     <Avatar className="size-11 border-none shadow-sm">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
+                                                        <AvatarImage src={member.user_info.avatar || undefined} />
                                                         <AvatarFallback className="bg-indigo-50 text-indigo-700 font-bold">
                                                             {getInitials(member.user_info.name)}
                                                         </AvatarFallback>
@@ -458,9 +458,8 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                                 {canRemove(member) && (
                                                                     <DropdownMenuItem
                                                                         disabled={getMemberBalance(member.user) !== 0}
-                                                                        className={`text-rose-600 focus:text-rose-700 focus:bg-rose-50 font-medium py-2 rounded-md ${
-                                                                            getMemberBalance(member.user) !== 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                                                                        }`}
+                                                                        className={`text-rose-600 focus:text-rose-700 focus:bg-rose-50 font-medium py-2 rounded-md ${getMemberBalance(member.user) !== 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                                                            }`}
                                                                         onClick={() => {
                                                                             if (getMemberBalance(member.user) !== 0) {
                                                                                 toast.error("Member must settle their balance before removal.")
@@ -494,7 +493,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                             <div key={member.id} className="flex items-center justify-between group">
                                                 <div className="flex items-center gap-4">
                                                     <Avatar className="size-11 border-none shadow-sm">
-                                                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
+                                                        <AvatarImage src={member.user_info.avatar || undefined} />
                                                         <AvatarFallback className="bg-indigo-50 text-indigo-700 font-bold">
                                                             {getInitials(member.user_info.name)}
                                                         </AvatarFallback>
@@ -577,9 +576,8 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                                 {canRemove(member) && (
                                                                     <DropdownMenuItem
                                                                         disabled={getMemberBalance(member.user) !== 0}
-                                                                        className={`text-rose-600 focus:text-rose-700 focus:bg-rose-50 font-medium py-2 rounded-md ${
-                                                                            getMemberBalance(member.user) !== 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                                                                        }`}
+                                                                        className={`text-rose-600 focus:text-rose-700 focus:bg-rose-50 font-medium py-2 rounded-md ${getMemberBalance(member.user) !== 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                                                                            }`}
                                                                         onClick={() => {
                                                                             if (getMemberBalance(member.user) !== 0) {
                                                                                 toast.error("Member must settle their balance before removal.")
@@ -627,7 +625,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                     <div key={invitation.id} className="flex items-center justify-between gap-4 group">
                                                         <div className="flex items-center gap-4 min-w-0">
                                                             <Avatar className="size-10 shadow-sm shrink-0">
-                                                                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${invitation.email}`} />
+                                                                <AvatarImage src={undefined} />
                                                                 <AvatarFallback>{invitation.email.charAt(0).toUpperCase()}</AvatarFallback>
                                                             </Avatar>
                                                             <div className="flex flex-col min-w-0">
@@ -690,7 +688,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
 
                                                 <EditableSettingRow
-                                                      key={`editable-Description-${editingField === 'description' ? 'editing' : 'view'}-${group.description || ''}`}
+                                                    key={`editable-Description-${editingField === 'description' ? 'editing' : 'view'}-${group.description || ''}`}
                                                     icon={Edit2}
                                                     label="Description"
                                                     value={group.description || ""}
@@ -715,7 +713,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <Avatar className="size-7 border-2 border-white shadow-sm">
-                                                            <AvatarImage src={group.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${group.name}`} className="object-cover" />
+                                                            <AvatarImage src={group.avatar || undefined} className="object-cover" />
                                                             <AvatarFallback className="bg-indigo-50 text-indigo-700 text-[10px] font-bold">{group.name.charAt(0)}</AvatarFallback>
                                                         </Avatar>
                                                         {updateGroupMutation.isPending && !editingField && (
@@ -723,38 +721,16 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                         )}
                                                     </div>
                                                 </SettingRow>
-                                                <input 
-                                                    type="file" 
-                                                    accept="image/*" 
-                                                    ref={fileInputRef} 
-                                                    className="hidden" 
-                                                    onChange={handleAvatarChange} 
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    ref={fileInputRef}
+                                                    className="hidden"
+                                                    onChange={handleAvatarChange}
                                                     disabled={updateGroupMutation.isPending}
                                                 />
 
-                                                <SettingRow
-                                                    icon={DollarSign}
-                                                    label="Currency"
-                                                    value="USD ($)"
-                                                    iconBg="bg-emerald-50"
-                                                    iconColor="text-emerald-600"
-                                                />
 
-                                                <SettingRow
-                                                    icon={Calendar}
-                                                    label="Date format"
-                                                    value="MM/DD/YYYY"
-                                                    iconBg="bg-purple-50"
-                                                    iconColor="text-purple-600"
-                                                />
-
-                                                <SettingRow
-                                                    icon={DollarSign}
-                                                    label="Decimal format"
-                                                    value="2 (1,234.56)"
-                                                    iconBg="bg-pink-50"
-                                                    iconColor="text-pink-600"
-                                                />
                                             </div>
                                         </div>
 
@@ -842,11 +818,10 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
 
                                                 {group.permissions?.can_leave_group && (
                                                     <div
-                                                        className={`flex items-start gap-4 py-3 rounded-xl px-2 -mx-2 transition-colors ${
-                                                            currentUserBalance !== 0 
-                                                                ? "opacity-50 cursor-not-allowed bg-slate-50/50" 
+                                                        className={`flex items-start gap-4 py-3 rounded-xl px-2 -mx-2 transition-colors ${currentUserBalance !== 0
+                                                                ? "opacity-50 cursor-not-allowed bg-slate-50/50"
                                                                 : "cursor-pointer hover:bg-slate-50"
-                                                        }`}
+                                                            }`}
                                                         onClick={() => {
                                                             if (currentUserBalance !== 0) {
                                                                 toast.error("Please settle your balance before leaving the group.")
@@ -859,7 +834,7 @@ export const GroupMembersSheet = ({ group, open, onOpenChange }: GroupMembersShe
                                                         <div className="flex flex-col">
                                                             <span className="text-[15px] font-bold text-slate-900">Leave group</span>
                                                             <span className="text-[13px] text-slate-500">
-                                                                {currentUserBalance !== 0 
+                                                                {currentUserBalance !== 0
                                                                     ? `Current balance: ${formatCurrency(currentUserBalance)}`
                                                                     : "You will no longer be a member"}
                                                             </span>

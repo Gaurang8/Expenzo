@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.files.storage import default_storage
 
 from apps.common.responses import (
     success_response,
@@ -68,6 +69,26 @@ class MeView(APIView):
         return success_response(
             data=UserSerializer(request.user).data,
             message="User fetched successfully",
+        )
+
+    def patch(self, request):
+        data = request.data.copy()
+        
+        if 'avatar' in request.FILES:
+            file_obj = request.FILES['avatar']
+            file_name = default_storage.save(f"avatars/{file_obj.name}", file_obj)
+            data['avatar'] = request.build_absolute_uri(default_storage.url(file_name))
+
+        serializer = UserSerializer(
+            request.user,
+            data=data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return success_response(
+            data=serializer.data,
+            message="Settings updated successfully"
         )
 
 class GoogleLoginView(APIView):

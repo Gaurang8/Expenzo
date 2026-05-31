@@ -397,6 +397,7 @@ def calculate_group_balances(*, group):
             "user_id": member.user_id,
             "email": member.user.email,
             "name": member.user.full_name,
+            "avatar": member.user.avatar,
             "balance": Decimal("0.00"),
         }
 
@@ -462,12 +463,14 @@ def simplify_balances(balances):
                     "id": debtor["user_id"],
                     "email": debtor["email"],
                     "name": debtor["name"],
+                    "avatar": debtor["avatar"],
                 },
                 "to_user": creditor["user_id"],
                 "to_user_info": {
                     "id": creditor["user_id"],
                     "email": creditor["email"],
                     "name": creditor["name"],
+                    "avatar": creditor["avatar"],
                 },
                 "amount": str(transfer_amount.quantize(Decimal("0.01"))),
             }

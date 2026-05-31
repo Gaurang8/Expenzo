@@ -53,7 +53,7 @@ function MemberBalanceItem({
             >
                 <div className="flex items-center gap-4 min-w-0">
                     <Avatar className="size-12 border-2 border-white shadow-sm shrink-0">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.email}`} />
+                        <AvatarImage src={member.avatar || undefined} />
                         <AvatarFallback className="bg-slate-100 text-slate-500 text-xs font-black">
                             {getInitials(member.name)}
                         </AvatarFallback>
@@ -105,7 +105,7 @@ function MemberBalanceItem({
                                     <div key={i} className="flex flex-col gap-3">
                                         <div className="flex items-center gap-3">
                                             <Avatar className="size-8 border border-white shadow-sm shrink-0">
-                                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${otherUser.email}`} />
+                                                <AvatarImage src={otherUser?.avatar || undefined} />
                                                 <AvatarFallback className="text-[10px] font-black uppercase">
                                                     {getInitials(otherUser.name)}
                                                 </AvatarFallback>
@@ -155,7 +155,7 @@ export const BalanceBreakdownDialog = ({ open, onOpenChange, data }: BalanceBrea
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden rounded-[40px] border-none shadow-2xl [&>button]:text-white [&>button]:hover:text-dark/80 [&>button]:top-4 [&>button]:right-4">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl [&>button]:text-white [&>button]:hover:text-dark/80 [&>button]:top-4 [&>button]:right-4">
                 <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 p-8 pb-20 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                         <Coins className="size-32 -rotate-12" />
