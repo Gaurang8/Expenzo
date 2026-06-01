@@ -1,7 +1,7 @@
 import { useState, useRef } from "react"
 import { useAuthStore } from "@/store/auth-store"
-import { useUpdateSettings } from "@/features/auth/mutations"
-import { Calendar, Camera, Loader2, Save } from "lucide-react"
+import { useUpdateSettings, useChangePassword } from "@/features/auth/mutations"
+import { Calendar, Camera, Loader2, Save, Lock } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,10 @@ export default function SettingsPage() {
     const [fullName, setFullName] = useState(user?.full_name || "")
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
     const [avatarFile, setAvatarFile] = useState<File | null>(null)
+
+    const [oldPassword, setOldPassword] = useState("")
+    const [newPassword, setNewPassword] = useState("")
+    const { mutate: changePassword, isPending: isChangingPassword } = useChangePassword()
 
     const [prevFullName, setPrevFullName] = useState(user?.full_name)
 
@@ -78,6 +82,29 @@ export default function SettingsPage() {
     }
 
     const hasUnsavedChanges = fullName.trim() !== user.full_name || avatarFile !== null
+
+    const handleChangePassword = () => {
+        if (!oldPassword || !newPassword) {
+            toast.error("Please enter both old and new passwords")
+            return
+        }
+
+        if (newPassword.length < 8) {
+            toast.error("New password must be at least 8 characters")
+            return
+        }
+
+        changePassword({ old_password: oldPassword, new_password: newPassword }, {
+            onSuccess: (res) => {
+                toast.success(res.message)
+                setOldPassword("")
+                setNewPassword("")
+            },
+            onError: (err) => {
+                toast.apiError(err)
+            }
+        })
+    }
 
     return (
         <div className="flex-1 overflow-y-auto">
@@ -192,6 +219,57 @@ export default function SettingsPage() {
                                 <option value="dd MMM yyyy">12 May 2025</option>
                                 <option value="MMM dd, yyyy">May 12, 2025</option>
                             </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <h2 className="text-sm font-semibold text-slate-900">Security</h2>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        <div className="flex items-start gap-4">
+                            <div className="p-2 bg-slate-100 rounded-lg shrink-0 mt-1">
+                                <Lock className="size-5 text-slate-600" />
+                            </div>
+                            <div className="space-y-4 w-full">
+                                <div>
+                                    <h3 className="text-sm font-medium text-slate-900">Change Password</h3>
+                                    <p className="text-xs text-slate-500 mb-4">Update your password to keep your account secure</p>
+                                </div>
+                                
+                                <div className="space-y-3 max-w-sm">
+                                    <div>
+                                        <Input
+                                            type="password"
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                            className="h-10 rounded-xl"
+                                            placeholder="Current password"
+                                            disabled={isChangingPassword}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Input
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            className="h-10 rounded-xl"
+                                            placeholder="New password"
+                                            disabled={isChangingPassword}
+                                        />
+                                    </div>
+                                    <Button
+                                        onClick={handleChangePassword}
+                                        disabled={isChangingPassword || !oldPassword || !newPassword}
+                                        className="h-9 w-full bg-slate-900 hover:bg-slate-800 text-white rounded-lg shadow-sm"
+                                    >
+                                        {isChangingPassword ? <Loader2 className="size-4 animate-spin mr-1.5" /> : null}
+                                        Update Password
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

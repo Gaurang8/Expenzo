@@ -23,3 +23,21 @@ export const useUpdateSettings = () => {
         }
     })
 }
+
+export const useForgotPassword = () => {
+    return useMutation<ApiSuccess<null>, ApiError, { email: string }>({
+        mutationFn: (payload) => api.post("/accounts/forgot-password/", payload),
+    })
+}
+
+export const useResetPassword = () => {
+    return useMutation<ApiSuccess<null>, ApiError, { uidb64: string; token: string; new_password: string }>({
+        mutationFn: (payload) => api.post(`/accounts/reset-password/${payload.uidb64}/${payload.token}/`, { new_password: payload.new_password }),
+    })
+}
+
+export const useChangePassword = () => {
+    return useMutation<ApiSuccess<null>, ApiError, { old_password: string; new_password: string }>({
+        mutationFn: (payload) => api.post("/accounts/change-password/", payload),
+    })
+}

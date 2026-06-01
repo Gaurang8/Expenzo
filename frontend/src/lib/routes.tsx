@@ -5,6 +5,8 @@ import Group from "@/features/group"
 import NotificationsPage from "@/features/notifications"
 import { RecentActivityPage } from "@/features/activity/RecentActivityPage"
 import SettingsPage from "@/features/settings"
+import ForgotPasswordPage from "@/features/forgot-password"
+import ResetPasswordPage from "@/features/reset-password"
 
 export const ROUTES = {
   HOME: "/",
@@ -14,6 +16,8 @@ export const ROUTES = {
   NOTIFICATIONS: "/notifications",
   ACTIVITY: "/activities",
   SETTINGS: "/settings",
+  FORGOT_PASSWORD: "/forgot-password",
+  RESET_PASSWORD: "/reset-password/:uid/:token",
 } as const
 
 
@@ -49,6 +53,20 @@ export const routesMap: RouteConfig[] = [
     authRequired: false,
     isLayoutEnabled: false,
     label: "Register",
+  },
+  {
+    path: ROUTES.FORGOT_PASSWORD,
+    component: ForgotPasswordPage,
+    authRequired: false,
+    isLayoutEnabled: false,
+    label: "Forgot Password",
+  },
+  {
+    path: ROUTES.RESET_PASSWORD,
+    component: ResetPasswordPage,
+    authRequired: false,
+    isLayoutEnabled: false,
+    label: "Reset Password",
   },
   {
     path: ROUTES.GROUP_DETAIL,

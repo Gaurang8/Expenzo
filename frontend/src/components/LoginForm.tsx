@@ -113,9 +113,9 @@ export function LoginForm() {
             <Field data-invalid={form.formState.errors.password}>
               <div className="flex item-center">
                 <FieldLabel htmlFor="login-password">Password</FieldLabel>
-                <a href="#" className="ml-auto text-sm underline-offset-4 hover:underline">
+                <Link to={ROUTES.FORGOT_PASSWORD} className="ml-auto text-sm underline-offset-4 hover:underline">
                   Forgot your password?
-                </a>
+                </Link>
               </div>
               <Input
                 {...form.register("password")}

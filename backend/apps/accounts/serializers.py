@@ -68,3 +68,18 @@ class UserSerializer(serializers.ModelSerializer):
 
 class GoogleLoginSerializer(serializers.Serializer):
     token = serializers.CharField()
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=6)
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=6)

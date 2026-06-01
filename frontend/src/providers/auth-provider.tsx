@@ -1,5 +1,5 @@
 import React, { useEffect } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, matchPath } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { useMe } from "@/features/auth/queries"
 import { toast } from "@/lib/toast"
@@ -16,7 +16,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const token = localStorage.getItem("access_token")
 
-  const isPublicRoute = (PUBLIC_ROUTES as string[]).includes(location.pathname)
+  const isPublicRoute = (PUBLIC_ROUTES as string[]).some(routePath => 
+    matchPath({ path: routePath, end: true }, location.pathname)
+  )
 
   const { data, isError, isSuccess } = useMe({
     enabled: !!token,
