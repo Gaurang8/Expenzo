@@ -4,6 +4,7 @@ export interface Group {
   description: string
   avatar?: string
   created_at: string
+  updated_at: string
   current_user_role: 'owner' | 'admin' | 'member' | null
   user_balance: string
   settings: {

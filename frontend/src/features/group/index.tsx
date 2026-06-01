@@ -76,7 +76,7 @@ const GroupIndex = () => {
                                                     {group.name}
                                                 </div>
                                                 <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                                                    Last active: {formatDate(group.created_at, "MMM d")}
+                                                    Last active: {formatDate(group.updated_at, "MMM d")}
                                                 </div>
                                             </div>
                                         </div>

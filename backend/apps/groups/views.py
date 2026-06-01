@@ -1,6 +1,8 @@
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
+from django.http import HttpResponse
+import csv
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -11,6 +13,7 @@ from apps.accounts.models import User
 from apps.common.responses import error_response, success_response
 
 from .models import Group, GroupInvitation, GroupMember
+from apps.expenses.models import Expense, Settlement
 from .selectors import (
     get_group_member,
     get_group_member_by_id,
@@ -43,19 +46,21 @@ from .services import (
 class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = GroupSerializer
-    lookup_field = 'id'
-    lookup_url_kwarg = 'group_id'
+    lookup_field = "id"
+    lookup_url_kwarg = "group_id"
 
     def get_queryset(self):
         user = self.request.user
         prefetch_membership = Prefetch(
-            'memberships',
+            "memberships",
             queryset=GroupMember.objects.filter(user=user),
-            to_attr='user_membership'
+            to_attr="user_membership",
         )
-        return Group.objects.filter(
-            memberships__user=user
-        ).prefetch_related(prefetch_membership).distinct()
+        return (
+            Group.objects.filter(memberships__user=user)
+            .prefetch_related(prefetch_membership)
+            .distinct()
+        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -67,12 +72,12 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        
-        if 'avatar' in request.FILES:
-            file_obj = request.FILES['avatar']
+
+        if "avatar" in request.FILES:
+            file_obj = request.FILES["avatar"]
             file_name = default_storage.save(f"uploads/{file_obj.name}", file_obj)
-            data['avatar'] = request.build_absolute_uri(default_storage.url(file_name))
-            
+            data["avatar"] = request.build_absolute_uri(default_storage.url(file_name))
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
@@ -94,32 +99,35 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        
-        membership = GroupMember.objects.filter(group=instance, user=request.user).first()
+
+        membership = GroupMember.objects.filter(
+            group=instance, user=request.user
+        ).first()
         if not membership:
             return error_response(message="Permission denied")
 
         data = request.data.copy()
-        
-        if 'settings' in data:
+
+        if "settings" in data:
             if membership.role not in ["owner", "admin"]:
                 return error_response(message="Permission denied")
         else:
-            if not has_setting_permission(membership.role, instance.settings.get("update_group", "admin")):
+            if not has_setting_permission(
+                membership.role, instance.settings.get("update_group", "admin")
+            ):
                 return error_response(message="Permission denied")
-        
-        if 'avatar' in request.FILES:
-            file_obj = request.FILES['avatar']
+
+        if "avatar" in request.FILES:
+            file_obj = request.FILES["avatar"]
             file_name = default_storage.save(f"uploads/{file_obj.name}", file_obj)
-            data['avatar'] = request.build_absolute_uri(default_storage.url(file_name))
+            data["avatar"] = request.build_absolute_uri(default_storage.url(file_name))
 
         serializer = self.get_serializer(instance, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
+
         return success_response(
-            data=serializer.data,
-            message="Group updated successfully"
+            data=serializer.data, message="Group updated successfully"
         )
 
     def destroy(self, request, *args, **kwargs):
@@ -128,15 +136,104 @@ class GroupViewSet(viewsets.ModelViewSet):
             delete_group(group=group, user=request.user)
             return success_response(message="Group deleted successfully")
         except ValueError as e:
-            return error_response(message=str(e), status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response(
+                message=str(e), status_code=status.HTTP_400_BAD_REQUEST
+            )
 
+    @action(detail=True, methods=["get"])
+    def export(self, request, group_id=None):
+        group = self.get_object()
 
-    @action(detail=True, methods=['post'])
+        membership = GroupMember.objects.filter(group=group, user=request.user).first()
+        if not membership:
+            return error_response(message="Permission denied", status_code=403)
+
+        expenses = Expense.objects.filter(group=group).order_by("-expense_date")
+        settlements = Settlement.objects.filter(group=group).order_by("-settled_at")
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="group_data_{group.id}.csv"'
+        )
+
+        writer = csv.writer(response)
+        writer.writerow(
+            [
+                "Date",
+                "Type",
+                "Title/Description",
+                "Amount",
+                "Currency",
+                "Created By",
+                "Paid By",
+                "Paid To",
+            ]
+        )
+
+        data = []
+        for expense in expenses:
+            data.append(
+                {
+                    "date": expense.expense_date,
+                    "type": "Expense",
+                    "title": expense.title,
+                    "amount": expense.total_amount,
+                    "currency": expense.currency,
+                    "created_by": expense.created_by.email,
+                    "paid_by": (
+                        ", ".join([p.user.email for p in expense.payers.all()])
+                        if expense.payers.exists()
+                        else ""
+                    ),
+                    "paid_to": (
+                        ", ".join([p.user.email for p in expense.participants.all()])
+                        if expense.participants.exists()
+                        else ""
+                    ),
+                }
+            )
+
+        for settlement in settlements:
+            data.append(
+                {
+                    "date": settlement.settled_at,
+                    "type": "Settlement",
+                    "title": settlement.description or "Settlement",
+                    "amount": settlement.amount,
+                    "currency": "INR",  # Settlements are usually in INR or default currency
+                    "created_by": settlement.created_by.email,
+                    "paid_by": settlement.paid_by.email,
+                    "paid_to": settlement.paid_to.email,
+                }
+            )
+
+        # Sort descending
+        data.sort(key=lambda x: x["date"], reverse=True)
+
+        for row in data:
+            writer.writerow(
+                [
+                    row["date"].strftime("%Y-%m-%d %H:%M:%S"),
+                    row["type"],
+                    row["title"],
+                    row["amount"],
+                    row["currency"],
+                    row["created_by"],
+                    row["paid_by"],
+                    row["paid_to"],
+                ]
+            )
+
+        return response
+
+    @action(detail=True, methods=["post"])
     def invite(self, request, group_id=None):
         group = self.get_object()
 
         membership = GroupMember.objects.filter(group=group, user=request.user).first()
-        if not membership or not has_setting_permission(membership.role, group.settings.get("invite_members", "admin")):
+        if not membership or not has_setting_permission(
+            membership.role, group.settings.get("invite_members", "admin")
+        ):
             return error_response(message="Permission denied")
 
         serializer = InviteMemberSerializer(data=request.data)
@@ -155,21 +252,21 @@ class GroupViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return error_response(message=str(e))
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def members(self, request, group_id=None):
         group = self.get_object()
         members = get_group_members(group)
         serializer = GroupMemberSerializer(members, many=True)
         return success_response(data=serializer.data, message="Members fetched")
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=["get"])
     def invitations(self, request, group_id=None):
         group = self.get_object()
         invitations = group.invitations.filter(status="pending")
         serializer = GroupInvitationSerializer(invitations, many=True)
         return success_response(data=serializer.data, message="Invitations fetched")
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def leave(self, request, group_id=None):
         group = self.get_object()
         try:
@@ -178,15 +275,13 @@ class GroupViewSet(viewsets.ModelViewSet):
         except ValueError as e:
             return error_response(message=str(e))
 
-    @action(detail=True, methods=['post'], url_path='transfer-ownership')
+    @action(detail=True, methods=["post"], url_path="transfer-ownership")
     def transfer_ownership(self, request, group_id=None):
         group = self.get_object()
         serializer = TransferOwnershipSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        target_user = get_object_or_404(
-            User, id=serializer.validated_data["user_id"]
-        )
+        target_user = get_object_or_404(User, id=serializer.validated_data["user_id"])
 
         try:
             transfer_ownership(
@@ -197,8 +292,6 @@ class GroupViewSet(viewsets.ModelViewSet):
             return success_response(message="Ownership transferred")
         except ValueError as e:
             return error_response(message=str(e))
-
-
 
 
 class AcceptInvitationView(APIView):
@@ -228,6 +321,7 @@ class AcceptInvitationView(APIView):
                 message=str(e),
             )
 
+
 class RejectInvitationView(APIView):
 
     def post(
@@ -247,17 +341,15 @@ class RejectInvitationView(APIView):
         )
 
 
-
-
-
 class UserInvitationsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        invitations = GroupInvitation.objects.filter(
-            email=request.user.email,
-            status="pending"
-        ).select_related('group').order_by("-created_at")
+        invitations = (
+            GroupInvitation.objects.filter(email=request.user.email, status="pending")
+            .select_related("group")
+            .order_by("-created_at")
+        )
 
         serializer = GroupInvitationSerializer(
             invitations,
@@ -268,6 +360,7 @@ class UserInvitationsView(APIView):
             data=serializer.data,
             message="User invitations fetched successfully",
         )
+
 
 class RemoveGroupMemberView(APIView):
 
@@ -297,9 +390,6 @@ class RemoveGroupMemberView(APIView):
             )
 
 
-
-
-
 class UpdateMemberRoleView(APIView):
 
     def patch(
@@ -312,31 +402,19 @@ class UpdateMemberRoleView(APIView):
             id=member_id,
         )
 
-        serializer = (
-            UpdateMemberRoleSerializer(
-                data=request.data
-            )
-        )
+        serializer = UpdateMemberRoleSerializer(data=request.data)
 
-        serializer.is_valid(
-            raise_exception=True
-        )
+        serializer.is_valid(raise_exception=True)
 
         try:
-            updated_member = (
-                update_member_role(
-                    actor=request.user,
-                    member=member,
-                    role=serializer.validated_data[
-                        "role"
-                    ],
-                )
+            updated_member = update_member_role(
+                actor=request.user,
+                member=member,
+                role=serializer.validated_data["role"],
             )
 
             return success_response(
-                data=GroupMemberSerializer(
-                    updated_member
-                ).data,
+                data=GroupMemberSerializer(updated_member).data,
                 message="Role updated",
             )
 
