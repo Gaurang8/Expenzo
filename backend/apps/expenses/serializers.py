@@ -2,12 +2,18 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Expense, ExpensePayer, ExpenseParticipant, Settlement
+from .models import Expense, ExpensePayer, ExpenseParticipant, Settlement, Category
 
 from .enums import SplitType
 
 
 from apps.common.serializers import UserInfoSerializer
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name", "icon", "is_default", "created_by"]
 
 
 class ExpensePayerSerializer(serializers.Serializer):
@@ -54,6 +60,8 @@ class CreateExpenseSerializer(serializers.Serializer):
     currency = serializers.CharField(default="INR")
 
     split_type = serializers.ChoiceField(choices=SplitType.choices)
+
+    category_id = serializers.IntegerField(required=False, allow_null=True)
 
     expense_date = serializers.DateTimeField()
 
@@ -121,6 +129,8 @@ class ExpenseDetailSerializer(serializers.ModelSerializer):
 
     created_by_info = UserInfoSerializer(source="created_by", read_only=True)
 
+    category = CategorySerializer(read_only=True)
+
     class Meta:
         model = Expense
         fields = (
@@ -132,6 +142,7 @@ class ExpenseDetailSerializer(serializers.ModelSerializer):
             "currency",
             "split_type",
             "expense_date",
+            "category",
             "created_by",
             "created_by_info",
             "payers",

@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Plus, X, ChevronLeft, Search, Users, Percent, Wallet, Calendar, AlertCircle } from "lucide-react"
-import { useCreateExpense, useUpdateExpense } from "./mutations"
+import { useCreateExpense, useUpdateExpense, useCreateCategory } from "./mutations"
+import { useCategories } from "./queries"
 import { useMe } from "@/features/auth/queries"
 import { toast } from "@/lib/toast"
 import type { GroupMember } from "@/features/group/types"
@@ -20,11 +21,13 @@ import * as z from "zod"
 import type { CreateExpensePayload, ExpenseParticipantPayload } from "./types"
 import { formatCurrency, getInitials } from "@/lib/format"
 import type { Expense } from "./types"
+import { getCategoryIcon, ICON_MAP } from "./constants"
 
 type Step = 'main' | 'who_paid' | 'split_type' | 'split_details'
 
 const expenseSchema = z.object({
   title: z.string().optional(),
+  category_id: z.number().optional().nullable(),
   expense_date: z.string(),
   split_type: z.enum(["equal", "exact", "percentage"]),
   payers: z.record(z.string(), z.object({
@@ -74,6 +77,7 @@ export function ExpenseFormDialog({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       title: "",
+      category_id: null,
       expense_date: new Date().toISOString().split('T')[0],
       split_type: "equal",
       payers: {},
@@ -81,12 +85,31 @@ export function ExpenseFormDialog({
     }
   })
 
+  const { data: categoriesRes } = useCategories()
+  const categories = categoriesRes?.data || []
+
+  // Auto-select 'Other' category by default if not editing
+  useEffect(() => {
+    if (categories.length > 0 && !watch("category_id") && !initialData) {
+      const otherCat = categories.find(c => c.name.toLowerCase() === "other")
+      if (otherCat) {
+        setValue("category_id", otherCat.id)
+      } else {
+        setValue("category_id", categories[0].id)
+      }
+    }
+  }, [categories, setValue, watch, initialData])
+
   // Watch values for computations
   const payers = watch("payers")
   const participants = watch("participants")
   const splitType = watch("split_type")
 
   const [searchQuery, setSearchQuery] = useState("")
+  const [showCustomCategoryForm, setShowCustomCategoryForm] = useState(false)
+  const [customCategoryName, setCustomCategoryName] = useState("")
+  const [customCategoryIcon, setCustomCategoryIcon] = useState("Tag")
+  const { mutate: createCategory, isPending: isCreatingCategory } = useCreateCategory()
 
   // Initialize states when dialog opens
   useEffect(() => {
@@ -117,6 +140,7 @@ export function ExpenseFormDialog({
 
         reset({
           title: initialData.title,
+          category_id: initialData.category?.id || null,
           expense_date: initialData.expense_date.split('T')[0],
           split_type: initialData.split_type,
           payers: initialPayers,
@@ -128,8 +152,10 @@ export function ExpenseFormDialog({
           initialParticipants[m.user.toString()] = { user: m.user, selected: true, percentage: "", exact_amount: "" }
         })
 
+        const otherCat = categories.find(c => c.name.toLowerCase() === "other")
         reset({
           title: "",
+          category_id: otherCat?.id || null,
           expense_date: new Date().toISOString().split('T')[0],
           split_type: "equal",
           payers: initialPayers,
@@ -137,7 +163,7 @@ export function ExpenseFormDialog({
         })
       }
     }
-  }, [open, me, members, reset, initialData])
+  }, [open, me, members, reset, initialData, categories])
 
   const totalPaid = useMemo(() => {
     return Object.values(payers || {})
@@ -178,6 +204,7 @@ export function ExpenseFormDialog({
 
     const payload: CreateExpensePayload = {
       title: data.title?.trim() || "Expense",
+      category_id: data.category_id,
       expense_date: data.expense_date,
       split_type: data.split_type,
       total_amount: totalPaid.toFixed(2),
@@ -226,7 +253,7 @@ export function ExpenseFormDialog({
     const selectedPayers = Object.values(payers).filter(p => p.selected)
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
           <div className="flex -space-x-2">
             {members.slice(0, 3).map(m => (
@@ -302,6 +329,106 @@ export function ExpenseFormDialog({
                 {...register("title")}
               />
             </div>
+            <div className="min-w-0">
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Category</label>
+              <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 w-full">
+                {categories.map(cat => {
+                  const Icon = getCategoryIcon(cat.icon)
+                  const isSelected = watch("category_id") === cat.id
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setValue("category_id", cat.id)
+                        setShowCustomCategoryForm(false)
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Icon className="size-3.5" />
+                      {cat.name}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={() => setShowCustomCategoryForm(!showCustomCategoryForm)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed transition-colors whitespace-nowrap ${
+                    showCustomCategoryForm
+                      ? 'bg-slate-100 text-slate-800 border-slate-400'
+                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700'
+                  }`}
+                >
+                  <Plus className="size-3.5" />
+                  Custom
+                </button>
+              </div>
+
+              {showCustomCategoryForm && (
+                <div className="mt-3 p-3 bg-slate-50 border border-slate-200/60 rounded-xl space-y-3">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Category name..."
+                      value={customCategoryName}
+                      onChange={(e) => setCustomCategoryName(e.target.value)}
+                      className="h-9 rounded-lg text-xs"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        if (!customCategoryName.trim()) {
+                          toast.error("Please enter a category name")
+                          return
+                        }
+                        createCategory({
+                          name: customCategoryName.trim(),
+                          icon: customCategoryIcon
+                        }, {
+                          onSuccess: (res) => {
+                            setValue("category_id", res.data.id)
+                            setCustomCategoryName("")
+                            setShowCustomCategoryForm(false)
+                            toast.success("Category created!")
+                          }
+                        })
+                      }}
+                      disabled={isCreatingCategory}
+                      className="h-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3"
+                    >
+                      {isCreatingCategory ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Select Icon</label>
+                    <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto custom-scrollbar p-1">
+                      {Object.keys(ICON_MAP).map(iconName => {
+                        const IconComponent = ICON_MAP[iconName]
+                        const isSelected = customCategoryIcon === iconName
+                        return (
+                          <button
+                            key={iconName}
+                            type="button"
+                            onClick={() => setCustomCategoryIcon(iconName)}
+                            className={`p-1.5 rounded-lg border transition-all ${
+                              isSelected
+                                ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
+                                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            <IconComponent className="size-3.5" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">Date</label>
               <div className="relative">
@@ -335,7 +462,7 @@ export function ExpenseFormDialog({
   const renderWhoPaidStep = () => {
     const filteredMembers = members.filter(m => m.user_info.name?.toLowerCase().includes(searchQuery.toLowerCase()) || m.user_info.email.toLowerCase().includes(searchQuery.toLowerCase()))
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 min-w-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
@@ -405,7 +532,7 @@ export function ExpenseFormDialog({
 
   const renderSplitTypeStep = () => {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <div className="bg-slate-50 p-4 rounded-xl text-center">
           <div className="text-sm text-slate-500 font-medium mb-1">Total amount</div>
           <div className="text-3xl font-bold text-slate-800">{formatCurrency(totalPaid)}</div>
@@ -469,7 +596,7 @@ export function ExpenseFormDialog({
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl">
           <div>
             <div className="text-xs text-slate-500 font-medium mb-1">Total amount</div>
@@ -592,6 +719,7 @@ export function ExpenseFormDialog({
           className="w-full h-12 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-base font-semibold"
           onClick={() => handleCreate({
             title: watch('title') || '',
+            category_id: watch('category_id'),
             expense_date: watch('expense_date'),
             split_type: watch('split_type'),
             payers: watch('payers'),

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { api, ApiError } from "@/lib/api"
 import type { ApiSuccess } from "@/lib/types"
-import type { ActivityItem, Expense, Settlement, GroupBalancesResponse } from "./types"
+import type { ActivityItem, Expense, Settlement, GroupBalancesResponse, Category } from "./types"
 
 
 export function useGroupActivities(groupId: string | undefined) {
@@ -47,4 +47,10 @@ export function useGroupBalances(groupId: string | undefined) {
     staleTime: 30 * 1000, // 30 seconds
   })
 }
-
+export function useCategories() {
+  return useQuery<ApiSuccess<Category[]>, ApiError>({
+    queryKey: ["categories"],
+    queryFn: () => api.get<Category[]>(`/expenses/categories/`),
+    staleTime: 5 * 60 * 1000,
+  })
+}

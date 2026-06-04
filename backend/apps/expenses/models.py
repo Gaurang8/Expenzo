@@ -9,6 +9,25 @@ from apps.groups.models import Group
 from .enums import SplitType
 
 
+class Category(BaseModel):
+    name = models.CharField(max_length=50)
+    icon = models.CharField(max_length=50, default="Tag")
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="custom_categories",
+    )
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Expense(BaseModel):
 
     group = models.ForeignKey(
@@ -45,6 +64,14 @@ class Expense(BaseModel):
     split_type = models.CharField(
         max_length=20,
         choices=SplitType.choices,
+    )
+    
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="expenses",
     )
 
     expense_date = models.DateTimeField()

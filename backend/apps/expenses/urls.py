@@ -8,11 +8,15 @@ from .views import (
     GroupActivityFeedView,
     GroupBalancesView,
     UserActivityFeedView,
+    CategoryListCreateView,
 )
 
 urlpatterns = [
     # Global Activity Feed
     path("activities/", UserActivityFeedView.as_view()),
+    
+    # Categories
+    path("categories/", CategoryListCreateView.as_view()),
     
     # Expenses
     path("groups/<int:group_id>/create/", CreateExpenseView.as_view()),

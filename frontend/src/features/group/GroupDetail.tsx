@@ -1,6 +1,7 @@
+import { createElement } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Wallet, ChevronRight, Users, Calendar, Loader2 } from "lucide-react"
+import { Wallet, ChevronRight, Users, Calendar, Loader2 } from "lucide-react"
 import { useParams } from "react-router-dom"
 import { useGroupDetail } from "./queries"
 
@@ -19,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { ActivityItem, ExpenseActivity, SettlementActivity } from "@/features/expenses/types"
 import { formatCurrency, formatMonthYear, getInitials } from "@/lib/format"
 import { toast } from "@/lib/toast"
+import { getCategoryIcon } from "@/features/expenses/constants"
 
 
 function ExpenseCard({ item }: { item: ExpenseActivity }) {
@@ -58,11 +60,11 @@ function ExpenseCard({ item }: { item: ExpenseActivity }) {
     return (
         <div className={`${bgColor} ${textColor} p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative overflow-hidden group`}>
             <div className="absolute top-0 right-0 p-3 opacity-10">
-                <Wallet className="size-12 -rotate-12 group-hover:scale-110 transition-transform" />
+                {createElement(getCategoryIcon(item.category?.icon), { className: "size-12 -rotate-12 group-hover:scale-110 transition-transform" })}
             </div>
             <div className="flex items-center gap-3 mb-2">
                 <div className={`${isLight ? 'bg-slate-500/15' : 'bg-white/20'} p-2 rounded-lg`}>
-                    <Plus className="size-4" />
+                    {createElement(getCategoryIcon(item.category?.icon), { className: "size-4" })}
                 </div>
                 <span className="font-semibold text-sm truncate">{item.title}</span>
             </div>

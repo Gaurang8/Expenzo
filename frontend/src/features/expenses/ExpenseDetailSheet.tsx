@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { formatCurrency, getInitials } from "@/lib/format"
 import { format } from "date-fns"
-import type { ActivityItem, Expense, Settlement, SettlementActivity } from "./types"
+import type { ActivityItem, Expense, Settlement, SettlementActivity, ExpenseActivity } from "./types"
 import { useExpenseDetail, useSettlementDetail } from "./queries"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMe } from "@/features/auth/queries"
@@ -19,6 +19,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog"
 import { useState } from "react"
 import { Edit2 } from "lucide-react"
 import type { EditActivity } from "./types"
+import { getCategoryIcon } from "./constants"
 
 interface ExpenseDetailSheetProps {
     item: ActivityItem | null
@@ -144,6 +145,21 @@ export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDele
 
                         {/* Metadata List */}
                         <div className="px-8 space-y-5 mb-8">
+                            {isExpense && (
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                                            {(() => {
+                                                const Icon = getCategoryIcon((item as ExpenseActivity).category?.icon)
+                                                return <Icon className="size-4" />
+                                            })()}
+                                        </div>
+                                        <span className="text-[14px] font-bold text-slate-400">Category</span>
+                                    </div>
+                                    <span className="text-[14px] font-bold text-slate-700 capitalize">{(item as ExpenseActivity).category?.name || "Other"}</span>
+                                </div>
+                            )}
+
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="size-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
