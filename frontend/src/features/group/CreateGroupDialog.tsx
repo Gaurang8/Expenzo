@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -22,12 +22,14 @@ import {
 } from "@/components/ui/field"
 import { useCreateGroup } from "./mutations"
 import { toast } from "@/lib/toast"
-import { Plus } from "lucide-react"
+import { Plus, Upload, X } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const formSchema = z.object({
   name: z.string().min(2, "Group name must be at least 2 characters."),
   description: z.string().optional(),
+  avatar: z.string().optional(),
 })
 
 export function CreateGroupDialog() {
@@ -39,15 +41,34 @@ export function CreateGroupDialog() {
     defaultValues: {
       name: "",
       description: "",
+      avatar: "",
     },
   })
 
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setAvatarFile(file)
+      setAvatarPreview(URL.createObjectURL(file))
+    }
+  }
+
   function onSubmit(values: z.infer<typeof formSchema>) {
-    createGroup(values, {
+    const formData = new FormData()
+    formData.append("name", values.name)
+    if (values.description) formData.append("description", values.description)
+    if (avatarFile) formData.append("avatar", avatarFile)
+
+    createGroup(formData, {
       onSuccess: (res) => {
         toast.success(res.message)
         setOpen(false)
         form.reset()
+        setAvatarFile(null)
+        setAvatarPreview(null)
       },
       onError: (err) => {
         toast.apiError(err)
@@ -63,7 +84,7 @@ export function CreateGroupDialog() {
           Create Group
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[640px] p-6">
+      <DialogContent className="sm:max-w-[640px]">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">Create New Group</DialogTitle>
           <DialogDescription className="font-medium text-slate-500">
@@ -72,6 +93,37 @@ export function CreateGroupDialog() {
         </DialogHeader>
         <Separator className="my-3" />
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+
+          <div className="flex justify-center mb-4">
+            <div className="relative">
+              <Avatar className="h-24 w-24 rounded-2xl border">
+                <AvatarImage src={avatarPreview || undefined} className="object-cover" />
+                <AvatarFallback className="rounded-2xl bg-slate-100 text-slate-400">
+                  <Upload className="h-8 w-8" />
+                </AvatarFallback>
+              </Avatar>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                disabled={isPending}
+              />
+              {avatarPreview && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarFile(null)
+                    setAvatarPreview(null)
+                  }}
+                  className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full p-1 shadow-sm"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
           <FieldGroup>
             <Field data-invalid={form.formState.errors.name}>
               <FieldLabel htmlFor="group-name">Group Name</FieldLabel>

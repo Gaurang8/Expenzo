@@ -1,30 +1,38 @@
 from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.files.storage import default_storage
+from urllib.parse import urlparse
 import logging
 
 logger = logging.getLogger(__name__)
 
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from apps.groups.models import GroupInvitation, GroupMember
+
 @shared_task
 def send_invitation_email_task(invitation_id):
-    from apps.groups.models import GroupInvitation
     try:
-        invitation = GroupInvitation.objects.get(id=invitation_id)
+        invitation = GroupInvitation.objects.select_related('group', 'invited_by').get(id=invitation_id)
         
-        subject = f"You've been invited to join {invitation.group.name} on Expanzo"
-        message = (
-            f"Hello!\n\n"
-            f"{invitation.invited_by.full_name} has invited you to join the group "
-            f"'{invitation.group.name}' on Expanzo.\n\n"
-            f"Please log in or sign up to accept this invitation.\n\n"
-            f"Thanks,\nThe Expanzo Team"
-        )
+        subject = f"You've been invited to join {invitation.group.name} on Expenzo"
+        
+        context = {
+            'inviter_name': invitation.invited_by.full_name,
+            'group_name': invitation.group.name,
+            'action_url': f"{settings.FRONTEND_URL}/groups/{invitation.group.id}",
+        }
+        
+        html_message = render_to_string('emails/invitation.html', context)
+        plain_message = strip_tags(html_message)
         
         send_mail(
             subject=subject,
-            message=message,
+            message=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[invitation.email],
+            html_message=html_message,
             fail_silently=False,
         )
         logger.info(f"Invitation email sent to {invitation.email}")
@@ -33,9 +41,9 @@ def send_invitation_email_task(invitation_id):
     except Exception as e:
         logger.error(f"Failed to send invitation email: {str(e)}")
 
+
 @shared_task
 def send_role_update_email_task(member_id):
-    from apps.groups.models import GroupMember
     try:
         member = GroupMember.objects.get(id=member_id)
         
@@ -58,3 +66,19 @@ def send_role_update_email_task(member_id):
         logger.error(f"GroupMember with id {member_id} not found")
     except Exception as e:
         logger.error(f"Failed to send role update email: {str(e)}")
+
+
+@shared_task
+def delete_avatar_file_task(avatar_url):
+    if not avatar_url:
+        return
+    path = urlparse(avatar_url).path
+    if path.startswith(settings.MEDIA_URL):
+        relative_path = path[len(settings.MEDIA_URL):]
+        if relative_path and default_storage.exists(relative_path):
+            try:
+                default_storage.delete(relative_path)
+                logger.info(f"Deleted orphaned avatar file: {relative_path}")
+            except Exception as e:
+                logger.error(f"Failed to delete orphaned avatar file {relative_path}: {str(e)}")
+

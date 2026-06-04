@@ -8,6 +8,8 @@ export function useMe(options?: { enabled?: boolean }) {
   return useQuery<ApiSuccess<User>, ApiError>({
     queryKey: ["me"],
     queryFn: () => api.get<User>("/accounts/me/"),
+    staleTime: 5 * 60 * 1000, // 5 minutes
     ...options,
   })
 }
+

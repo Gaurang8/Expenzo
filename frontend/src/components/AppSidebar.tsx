@@ -1,15 +1,15 @@
+import { useNavigate, useLocation, Link } from "react-router-dom"
 import {
   Users,
   LogOut,
   ChevronsUpDown,
-  CreditCard,
   Bell,
   Sparkles,
-  BadgeCheck,
   History,
   Split,
   ChevronsRight,
-  ChevronsLeft
+  ChevronsLeft,
+  Settings
 } from "lucide-react"
 
 import {
@@ -24,7 +24,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,13 +33,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 
 import { useAuthStore } from "@/store/auth-store"
+import { useNotifications } from "@/features/notifications/queries"
+import { useUserActivities } from "@/features/expenses/queries"
+import { useMe } from "@/features/auth/queries"
+import type { SettlementActivity } from "@/features/expenses/types"
+import type { Notification } from "@/features/notifications/types"
+import type { PaginatedData, ApiSuccess } from "@/lib/types"
 import { ROUTES } from "@/lib/routes"
-import { useNavigate, useLocation } from "react-router-dom"
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { cn } from "@/lib/utils"
-import { getInitials } from "@/lib/format"
+import { getInitials, formatShortDate } from "@/lib/format"
+
 
 const items = [
   {
@@ -49,48 +54,85 @@ const items = [
     icon: Users,
   },
   {
+    title: "Notifications",
+    url: ROUTES.NOTIFICATIONS,
+    icon: Bell,
+  },
+  {
     title: "Activity",
-    url: "/activites",
+    url: ROUTES.ACTIVITY,
     icon: History,
+  },
+  {
+    title: "Settings",
+    url: ROUTES.SETTINGS,
+    icon: Settings,
   }
 ]
 
 export function AppSidebar() {
   const { user, logout } = useAuthStore()
+  const { data: notificationsRes } = useNotifications()
+  const notifications = notificationsRes?.pages?.flatMap((page: ApiSuccess<PaginatedData<Notification>>) => page.data.results) || ([] as Notification[])
+  const unreadCount = notifications.filter((n: Notification) => !n.is_read).length || 0
+
   const navigate = useNavigate()
   const location = useLocation()
 
+  const { data: activitiesRes } = useUserActivities()
+  const { data: meRes } = useMe()
+  const meId = meRes?.data?.id
+  const activities = activitiesRes?.data || []
 
-  const recentActivity = [
-    {
-      payee: "You",
-      amount: "₹200",
-      receiver: "Jatin Kantariya",
-      reason: "Lunch at Tower 1",
-      group_name: "Office Friends",
-      date: "May 10",
-      paid_by_me: true
-    },
-    {
-      payee: "Sahil Sutariya",
-      amount: "₹100",
-      receiver: "You",
-      reason: "Bus Tickets",
-      group_name: "Office Friends",
-      date: "May 09",
-      paid_by_me: false
-    },
-    {
-      payee: "Sahil Sutariya",
-      amount: "₹100",
-      receiver: "You",
-      reason: "Bus Tickets",
-      group_name: "Office Friends",
-      date: "May 09",
-      paid_by_me: false
+  const recentActivity = [...activities].sort((a, b) => {
+    const dateA = a.type === 'expense' ? a.expense_date : a.settled_at
+    const dateB = b.type === 'expense' ? b.expense_date : b.settled_at
+    return new Date(dateB).getTime() - new Date(dateA).getTime()
+  }).slice(0, 3).map(item => {
+    if (item.type === "expense") {
+      const isMe = item.primary_payer_info?.id === meId
+      return {
+        id: `exp-${item.id}`,
+        payee: isMe ? "You" : item.primary_payer_info?.name || "Someone",
+        amount: `₹${parseFloat(item.total_amount).toFixed(2)}`,
+        receiver: "the group",
+        reason: item.title,
+        group_name: item.group_name || "Group",
+        date: formatShortDate(item.expense_date, user?.date_format || 'MMM dd, yyyy'),
+        paid_by_me: isMe,
+        action: "paid"
+      }
+    } else {
+      const s = item as SettlementActivity
+      let payee: string
+      let receiver: string
+      let paid_by_me: boolean
+      if (s.my_role === "payer") {
+        payee = "You"
+        receiver = s.paid_to_info.name
+        paid_by_me = true
+      } else if (s.my_role === "receiver") {
+        payee = s.paid_by_info.name
+        receiver = "You"
+        paid_by_me = false
+      } else {
+        payee = s.paid_by_info.name
+        receiver = s.paid_to_info.name
+        paid_by_me = false
+      }
+      return {
+        id: `set-${s.id}`,
+        payee,
+        amount: `₹${parseFloat(s.amount).toFixed(2)}`,
+        receiver,
+        reason: "Settlement",
+        group_name: s.group_name || "Group",
+        date: formatShortDate(s.settled_at, user?.date_format || 'MMM dd, yyyy'),
+        paid_by_me,
+        action: "paid"
+      }
     }
-
-  ]
+  })
 
   const handleLogout = () => {
     logout()
@@ -109,31 +151,43 @@ export function AppSidebar() {
           <SidebarGroupLabel className="pr-4 pl-8 py-6 font-semibold text-slate-500">MENU</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="">
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}
-                  className={cn(
-                    'border-l-4 border-transparent py-2',
-                    location.pathname == item.url && "border-l-4 border-indigo-700"
-                  )}
-                >
-                  <SidebarMenuButton
-                    asChild
-                    tooltip={item.title}
-                    isActive={location.pathname === item.url}
+              {items.map((item) => {
+                const isActive = location.pathname === item.url || (item.url === ROUTES.HOME && location.pathname.startsWith('/groups/'))
+
+                return (
+                  <SidebarMenuItem key={item.title}
                     className={cn(
-                      "font-semibold! bg-transparent! pl-6 hover:text-indigo-700",
-                      location.pathname == item.url && "text-indigo-700!"
+                      'border-l-4 border-transparent my-1 px-2',
+                      isActive && "border-l-4 border-indigo-700"
                     )}
                   >
-                    <a href={item.url}>
-                      <div className="bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center">
-                        <item.icon />
-                      </div>
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={isActive}
+                      className={cn(
+                        "font-semibold! bg-transparent! pl-6 hover:text-indigo-700 h-full",
+                        isActive && "text-indigo-700! bg-indigo-50! hover:bg-indigo-50!"
+                      )}
+                    >
+                      <Link to={item.url} className="flex flex-1 items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center", isActive && "bg-indigo-100 text-indigo-700")}>
+                            <item.icon className="size-4" />
+                          </div>
+                          <span>{item.title}</span>
+                        </div>
+                        {item.title === "Notifications" && unreadCount > 0 && (
+                          <span className="flex h-5 w-5 mr-4 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        )}
+                      </Link>
+
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -141,11 +195,11 @@ export function AppSidebar() {
           <SidebarGroupLabel className="pr-4 pl-8 py-4 font-semibold text-slate-500">RECENT ACTIVITY</SidebarGroupLabel>
           <SidebarGroupContent className=" px-4 ">
             {recentActivity?.map((item) => (
-              <div key={item.date} className="px-4 py-3 text-slate-600">
+              <div key={item.id} className="px-4 py-3 text-slate-600">
                 <span className=" text-black font-medium">
                   {item?.payee}
                 </span>
-                &nbsp;loaned&nbsp;
+                &nbsp;{item.action}&nbsp;
                 <span className={
                   cn(
                     item?.paid_by_me ? "text-red-500" : "text-green-500",
@@ -193,14 +247,14 @@ export function AppSidebar() {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user?.full_name} alt={user?.full_name} />
+                    <AvatarImage src={user?.avatar || undefined} alt={user?.full_name} />
                     <AvatarFallback className=" rounded-lg">
                       {getInitials(user?.full_name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{user.full_name}</span>
-                    <span className="truncate text-xs">{user.email}</span>
+                    <span className="truncate font-medium">{user?.full_name}</span>
+                    <span className="truncate text-xs">{user?.email}</span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />
                 </SidebarMenuButton>
@@ -213,14 +267,14 @@ export function AppSidebar() {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user.full_name} alt={user.full_name} />
+                      <AvatarImage src={user?.avatar || undefined} alt={user?.full_name} />
                       <AvatarFallback className="rounded-lg">
                         {getInitials(user?.full_name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">{user.full_name}</span>
-                      <span className="truncate text-xs">{user.email}</span>
+                      <span className="truncate font-medium">{user?.full_name}</span>
+                      <span className="truncate text-xs">{user?.email}</span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
@@ -231,21 +285,7 @@ export function AppSidebar() {
                     Upgrade to Pro
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <BadgeCheck />
-                    Account
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <CreditCard />
-                    Billing
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell />
-                    Notifications
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

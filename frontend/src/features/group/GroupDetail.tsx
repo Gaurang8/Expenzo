@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Wallet, ChevronRight, Users, Calendar } from "lucide-react"
+import { Plus, Wallet, ChevronRight, Users, Calendar, Loader2 } from "lucide-react"
 import { useParams } from "react-router-dom"
-import { useGroups, useGroupMembers } from "./queries"
+import { useGroupDetail } from "./queries"
+
+
 import { useGroupActivities, useGroupBalances } from "@/features/expenses/queries"
 import { useMe } from "@/features/auth/queries"
 import { useDeleteExpense, useDeleteSettlement } from "@/features/expenses/mutations"
@@ -143,13 +145,13 @@ function ActivityCard({ item, onClick }: { item: ActivityItem, onClick: () => vo
 
 const GroupDetail = () => {
     const { groupId } = useParams()
-    const { data: groupsRes } = useGroups()
-    const { data: membersRes } = useGroupMembers(groupId)
+    const { group, members, isLoading: groupLoading } = useGroupDetail(groupId)
     const { data: meRes } = useMe()
     const me = meRes?.data
     const { data: activitiesRes, isLoading: activitiesLoading } = useGroupActivities(groupId)
     const { data: balancesRes } = useGroupBalances(groupId)
     const balancesData = balancesRes?.data?.simplified_transactions || []
+
     const deleteExpense = useDeleteExpense(groupId)
     const deleteSettlement = useDeleteSettlement(groupId)
 
@@ -184,18 +186,17 @@ const GroupDetail = () => {
         setIsDetailOpen(false)
     }
 
-    const groups = groupsRes?.data || []
-    const group = groups.find(g => g.id.toString() === groupId)
-    const members = membersRes?.data || []
     const activities = activitiesRes?.data || []
 
-    if (!group) {
+
+    if (groupLoading || !group) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-50">
-                <p className="text-slate-500 text-lg font-medium animate-pulse">Loading group details...</p>
+            <div className="flex-1 flex items-center justify-center h-full bg-slate-50">
+                <Loader2 className="size-8 animate-spin text-slate-400" />
             </div>
         )
     }
+
 
     // Group activities by month
     const groupedActivities = activities.reduce((acc, activity) => {
@@ -225,7 +226,7 @@ const GroupDetail = () => {
                         <div className="flex -space-x-2.5">
                             {members.slice(0, 4).map((member) => (
                                 <Avatar key={member.id} className="size-8 border-2 border-white ring-1 ring-slate-100 shadow-sm">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_info.email}`} />
+                                    <AvatarImage src={member.user_info.avatar || undefined} />
                                     <AvatarFallback className="text-[10px] bg-slate-100">{getInitials(member.user_info.name)}</AvatarFallback>
                                 </Avatar>
                             ))}
@@ -305,15 +306,13 @@ const GroupDetail = () => {
                                     </div>
                                 )
                             })}
-                            {balancesData.length > 3 && (
-                                <button
-                                    onClick={() => setIsBalancesOpen(true)}
-                                    className="flex cursor-pointer items-center text-slate-400 hover:text-indigo-600 transition-colors text-sm font-medium mt-4 group"
-                                >
-                                    +{balancesData.length - 3} more
-                                    <ChevronRight className="size-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
-                                </button>
-                            )}
+                            <button
+                                onClick={() => setIsBalancesOpen(true)}
+                                className="flex cursor-pointer items-center text-slate-400 hover:text-indigo-600 transition-colors text-sm font-medium mt-4 group"
+                            >
+                                {balancesData.length > 3 ? `+${balancesData.length - 3} more` : "View detailed balances"}
+                                <ChevronRight className="size-4 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
                         </div>
                     </div>
                 )}

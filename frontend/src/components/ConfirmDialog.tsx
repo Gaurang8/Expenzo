@@ -34,7 +34,7 @@ export const ConfirmDialog = ({
 }: ConfirmDialogProps) => {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[420px] rounded-[32px]! p-8 border-none shadow-2xl">
+            <DialogContent className="sm:max-w-[420px] p-8 border-none shadow-2xl">
                 <DialogHeader className="flex flex-col items-center text-center gap-4">
                     <div className={`size-16 rounded-full flex items-center justify-center ${variant === 'destructive' ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-600'}`}>
                         <AlertCircle className="size-8" />

@@ -110,7 +110,7 @@ export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDele
                                 <div className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="size-10 border-2 border-white shadow-sm">
-                                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${isExpense ? (detail as Expense)?.created_by_info?.email : (detail as Settlement)?.paid_by_info?.email}`} />
+                                            <AvatarImage src={(isExpense ? (detail as Expense)?.created_by_info?.avatar : (detail as Settlement)?.paid_by_info?.avatar) || undefined} />
                                             <AvatarFallback>{getInitials(isExpense ? (detail as Expense)?.created_by_info?.name : (detail as Settlement)?.paid_by_info?.name)}</AvatarFallback>
                                         </Avatar>
                                         <div>
@@ -214,7 +214,7 @@ export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDele
                                         <div key={payer.id} className="flex items-center justify-between p-3 hover:bg-slate-50 transition-colors rounded-xl group cursor-pointer">
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="size-8">
-                                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${payer.user_info.email}`} />
+                                                    <AvatarImage src={payer.user_info.avatar || undefined} />
                                                     <AvatarFallback>{getInitials(payer.user_info.name)}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="flex items-center gap-2">
@@ -248,7 +248,7 @@ export const ExpenseDetailSheet = ({ item, groupName, open, onOpenChange, onDele
                                         <div key={i} className="flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="size-7">
-                                                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.user_info.email}`} />
+                                                    <AvatarImage src={p.user_info.avatar || undefined} />
                                                     <AvatarFallback className="text-[10px] font-bold">{getInitials(p.user_info.name)}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="flex items-center gap-1.5">

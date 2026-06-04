@@ -1,9 +1,12 @@
 import { create } from "zustand"
+import { queryClient } from "@/providers/query-client"
 
 export interface User {
   id: number
   email: string
   full_name: string
+  date_format?: string
+  avatar?: string | null
 }
 
 interface AuthState {
@@ -24,6 +27,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem("access_token")
     localStorage.removeItem("refresh_token")
+    queryClient.clear()
     set({ user: null, isAuthenticated: false, isLoading: false })
   },
 }))
+
+

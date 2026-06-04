@@ -1,4 +1,4 @@
-import React from "react"
+
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { Toaster } from "sonner"
 import { AuthProvider } from "./providers/auth-provider"
@@ -13,21 +13,16 @@ function App() {
         <Toaster position="top-right" richColors closeButton />
         <AuthProvider>
           <Routes>
-            {routesMap.map((route) => {
-              const Component = route.component
-              const Layout = route.isLayoutEnabled ? MainLayout : React.Fragment
+            <Route element={<MainLayout />}>
+              {routesMap.filter(r => r.isLayoutEnabled).map((route) => {
+                const Component = route.component
+                return <Route key={route.path} path={route.path} element={<Component />} />
+              })}
+            </Route>
 
-              return (
-                <Route
-                  key={route.path}
-                  path={route.path}
-                  element={
-                    <Layout>
-                      <Component />
-                    </Layout>
-                  }
-                />
-              )
+            {routesMap.filter(r => !r.isLayoutEnabled).map((route) => {
+              const Component = route.component
+              return <Route key={route.path} path={route.path} element={<Component />} />
             })}
           </Routes>
         </AuthProvider>

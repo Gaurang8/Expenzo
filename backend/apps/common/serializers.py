@@ -6,3 +6,4 @@ class UserInfoSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(source="full_name", read_only=True)
     email = serializers.EmailField(read_only=True)
+    avatar = serializers.URLField(read_only=True)

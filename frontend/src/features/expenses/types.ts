@@ -4,6 +4,7 @@ export interface UserInfo {
   id: number
   name: string
   email: string
+  avatar?: string
 }
 
 export interface ExpensePayerPayload {
@@ -89,6 +90,7 @@ export interface ExpenseActivity {
   type: "expense"
   id: number
   group: number
+  group_name?: string
   title: string
   description: string | null
   total_amount: string
@@ -110,6 +112,7 @@ export interface SettlementActivity {
   type: "settlement"
   id: number
   group: number
+  group_name?: string
   amount: string
   description: string | null
   settled_at: string
@@ -128,6 +131,7 @@ export interface MemberBalance {
   user_id: number
   email: string
   name: string
+  avatar?: string
   balance: string
 }
 

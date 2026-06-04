@@ -8,8 +8,10 @@ export function useGroups() {
   return useQuery<ApiSuccess<Group[]>, ApiError>({
     queryKey: ["groups"],
     queryFn: () => api.get<Group[]>("/groups/"),
+    staleTime: 2 * 60 * 1000, // 2 minutes
   })
 }
+
 
 /** GET /groups/:groupId/members/ */
 export function useGroupMembers(groupId: string | undefined) {
@@ -38,3 +40,32 @@ export function useUserInvitations() {
     queryFn: () => api.get<GroupInvitation[]>("/groups/invitations/me/"),
   })
 }
+
+/** 
+ * Optimized hook to get a complete group context
+ */
+export function useGroupDetail(groupId: string | undefined) {
+  const groupQuery = useQuery<ApiSuccess<Group>, ApiError>({
+    queryKey: ["groups", groupId],
+    queryFn: () => api.get<Group>(`/groups/${groupId}/`),
+    enabled: !!groupId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+
+
+  const membersQuery = useGroupMembers(groupId)
+  const invitationsQuery = useGroupInvitations(groupId)
+
+  return {
+    group: groupQuery.data?.data,
+    members: membersQuery.data?.data || [],
+    invitations: invitationsQuery.data?.data || [],
+    isLoading: groupQuery.isLoading || membersQuery.isLoading || invitationsQuery.isLoading,
+    queries: {
+      group: groupQuery,
+      members: membersQuery,
+      invitations: invitationsQuery
+    }
+  }
+}
+

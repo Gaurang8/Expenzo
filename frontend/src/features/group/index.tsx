@@ -48,6 +48,10 @@ const GroupIndex = () => {
                         <div className="space-y-0.5 px-3">
                             {groups.map((group: Group) => {
                                 const isActive = groupId === group.id.toString()
+                                const balance = parseFloat(group.user_balance || "0")
+                                const isSettled = balance === 0
+                                const owes = balance < 0
+
                                 return (
                                     <div
                                         key={group.id}
@@ -61,7 +65,7 @@ const GroupIndex = () => {
                                     >
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-11 w-11 border-2 border-white shadow-sm">
-                                                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${group.name}&backgroundColor=f4511e`} />
+                                                <AvatarImage src={group.avatar || undefined} className="object-cover" />
                                                 <AvatarFallback className="bg-indigo-100 text-indigo-700 font-bold">{group.name.charAt(0).toUpperCase()}</AvatarFallback>
                                             </Avatar>
                                             <div className="min-w-0">
@@ -72,19 +76,19 @@ const GroupIndex = () => {
                                                     {group.name}
                                                 </div>
                                                 <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                                                    Last active: {formatDate(group.created_at, "MMM d")}
+                                                    Last active: {formatDate(group.updated_at, "MMM d")}
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="text-right shrink-0">
                                             <div className={cn(
                                                 "text-[14px] font-bold",
-                                                group.id % 2 === 0 ? "text-rose-500" : "text-emerald-500"
+                                                isSettled ? "text-slate-400" : owes ? "text-rose-500" : "text-emerald-500"
                                             )}>
-                                                {group.id % 2 === 0 ? `- ₹${200 + group.id * 10}` : `+ ₹${150 + group.id * 5}`}
+                                                {isSettled ? "₹0.00" : owes ? `- ₹${Math.abs(balance).toFixed(2)}` : `+ ₹${balance.toFixed(2)}`}
                                             </div>
                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">
-                                                {group.id % 2 === 0 ? "you owe" : "are owed"}
+                                                {isSettled ? "settled" : owes ? "you owe" : "are owed"}
                                             </div>
                                         </div>
                                     </div>

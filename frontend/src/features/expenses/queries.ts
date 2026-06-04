@@ -1,15 +1,26 @@
 import { useQuery } from "@tanstack/react-query"
 import { api, ApiError } from "@/lib/api"
 import type { ApiSuccess } from "@/lib/types"
-import type { ActivityItem, Expense, Settlement, GroupBalance, GroupBalancesResponse } from "./types"
+import type { ActivityItem, Expense, Settlement, GroupBalancesResponse } from "./types"
+
 
 export function useGroupActivities(groupId: string | undefined) {
   return useQuery<ApiSuccess<ActivityItem[]>, ApiError>({
     queryKey: ["groups", groupId, "activities"],
     queryFn: () => api.get<ActivityItem[]>(`/expenses/groups/${groupId}/activities/`),
     enabled: !!groupId,
+    staleTime: 30 * 1000, // 30 seconds
   })
 }
+
+export function useUserActivities() {
+  return useQuery<ApiSuccess<ActivityItem[]>, ApiError>({
+    queryKey: ["user", "activities"],
+    queryFn: () => api.get<ActivityItem[]>(`/expenses/activities/`),
+    staleTime: 30 * 1000,
+  })
+}
+
 
 /** GET /expenses/:expenseId/ */
 export function useExpenseDetail(expenseId: string | undefined) {
@@ -33,5 +44,7 @@ export function useGroupBalances(groupId: string | undefined) {
     queryKey: ["groups", groupId, "balances"],
     queryFn: () => api.get<GroupBalancesResponse>(`/expenses/groups/${groupId}/balances/`),
     enabled: !!groupId,
+    staleTime: 30 * 1000, // 30 seconds
   })
 }
+

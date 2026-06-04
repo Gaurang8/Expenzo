@@ -147,7 +147,7 @@ export function SettlementFormDialog({
               {selectedPayer ? (
                 <div className="flex items-center gap-2 overflow-hidden">
                   <Avatar className="size-6">
-                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPayer.user_info.email}`} />
+                    <AvatarImage src={selectedPayer.user_info.avatar || undefined} />
                     <AvatarFallback className="text-[8px]">{getInitials(selectedPayer.user_info.name)}</AvatarFallback>
                   </Avatar>
                   <span className="font-semibold text-slate-700 text-sm truncate">{selectedPayer.user_info.name === me?.full_name ? "You" : selectedPayer.user_info.name}</span>
@@ -167,7 +167,7 @@ export function SettlementFormDialog({
               {selectedReceiver ? (
                 <div className="flex items-center gap-2 overflow-hidden">
                   <Avatar className="size-6">
-                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedReceiver.user_info.email}`} />
+                    <AvatarImage src={selectedReceiver.user_info.avatar || undefined} />
                     <AvatarFallback className="text-[8px]">{getInitials(selectedReceiver.user_info.name)}</AvatarFallback>
                   </Avatar>
                   <span className="font-semibold text-slate-700 text-sm truncate">{selectedReceiver.user_info.name === me?.full_name ? "You" : selectedReceiver.user_info.name}</span>
@@ -240,7 +240,7 @@ export function SettlementFormDialog({
               className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-indigo-50 transition-colors group"
             >
               <Avatar className="size-10 border-2 border-white shadow-sm">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_info.email}`} />
+                <AvatarImage src={m.user_info.avatar || undefined} />
                 <AvatarFallback>{getInitials(m.user_info.name)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left">
@@ -271,7 +271,7 @@ export function SettlementFormDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="sm:max-w-[540px] p-6 bg-white gap-0 rounded-[32px] border-none shadow-2xl">
+      <DialogContent className="sm:max-w-[540px] p-6 bg-white gap-0 border-none shadow-2xl">
         <DialogHeader className="mb-6">
           <div className="flex items-center gap-4">
             {step !== 'main' && (

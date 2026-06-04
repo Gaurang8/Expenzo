@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -177,7 +177,7 @@ export function ExpenseFormDialog({
     }
 
     const payload: CreateExpensePayload = {
-      title: data.title.trim() || "Expense",
+      title: data.title?.trim() || "Expense",
       expense_date: data.expense_date,
       split_type: data.split_type,
       total_amount: totalPaid.toFixed(2),
@@ -231,7 +231,7 @@ export function ExpenseFormDialog({
           <div className="flex -space-x-2">
             {members.slice(0, 3).map(m => (
               <Avatar key={m.id} className="size-8 border-2 border-white ring-1 ring-slate-100 shadow-sm">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_info.email}`} />
+                <AvatarImage src={m.user_info.avatar || undefined} />
                 <AvatarFallback className="text-[10px] bg-slate-100">{getInitials(m.user_info.name)}</AvatarFallback>
               </Avatar>
             ))}
@@ -250,7 +250,7 @@ export function ExpenseFormDialog({
               return (
                 <div key={p.user} className="flex items-center gap-3">
                   <Avatar className="size-8">
-                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member?.user_info.email}`} />
+                    <AvatarImage src={member?.user_info.avatar || undefined} />
                     <AvatarFallback>{getInitials(member?.user_info.name)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 flex items-center gap-2">
@@ -364,7 +364,7 @@ export function ExpenseFormDialog({
                     {p.selected && <svg className="size-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                   </div>
                   <Avatar className="size-8">
-                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_info.email}`} />
+                    <AvatarImage src={m.user_info.avatar || undefined} />
                     <AvatarFallback>{m.user_info.name?.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 flex items-center gap-2">
@@ -522,7 +522,7 @@ export function ExpenseFormDialog({
               return (
                 <div key={m.id} className="flex items-center gap-3 py-1">
                   <Avatar className="size-8">
-                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_info.email}`} />
+                    <AvatarImage src={m.user_info.avatar || undefined} />
                     <AvatarFallback>{m.user_info.name?.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 flex items-center gap-2">

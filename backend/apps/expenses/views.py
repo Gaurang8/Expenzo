@@ -11,6 +11,7 @@ from apps.common.responses import success_response, error_response
 from django.core.cache import cache
 
 from apps.groups.models import Group, GroupMember
+from apps.groups.selectors import has_setting_permission
 
 from .models import Expense, Settlement
 
@@ -57,8 +58,12 @@ class CreateExpenseView(APIView):
 
         group = get_object_or_404(Group, id=group_id)
 
-        if not is_group_member(group=group, user=request.user):
+        membership = GroupMember.objects.filter(group=group, user=request.user).first()
+        if not membership:
             return error_response(message="You are not a group member", status_code=403)
+            
+        if not has_setting_permission(membership.role, group.settings.get("add_expense", "member")):
+            return error_response(message="Permission denied to add expense", status_code=403)
 
         serializer = CreateExpenseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -105,8 +110,12 @@ class ExpenseDetailView(APIView):
 
     def delete(self, request, expense_id):
         expense = get_object_or_404(Expense, id=expense_id)
-        if not is_group_member(group=expense.group, user=request.user):
+        membership = GroupMember.objects.filter(group=expense.group, user=request.user).first()
+        if not membership:
             return error_response(message="You are not a group member", status_code=403)
+            
+        if expense.created_by != request.user and not has_setting_permission(membership.role, expense.group.settings.get("manage_expenses", "admin")):
+            return error_response(message="Permission denied to manage expense", status_code=403)
         group_id = expense.group_id
         expense.delete()
         invalidate_group_caches(group_id)
@@ -114,8 +123,12 @@ class ExpenseDetailView(APIView):
 
     def patch(self, request, expense_id):
         expense = get_object_or_404(Expense, id=expense_id)
-        if not is_group_member(group=expense.group, user=request.user):
+        membership = GroupMember.objects.filter(group=expense.group, user=request.user).first()
+        if not membership:
             return error_response(message="You are not a group member", status_code=403)
+            
+        if expense.created_by != request.user and not has_setting_permission(membership.role, expense.group.settings.get("manage_expenses", "admin")):
+            return error_response(message="Permission denied to manage expense", status_code=403)
 
         serializer = CreateExpenseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -408,4 +421,61 @@ class GroupBalancesView(APIView):
         return success_response(
             data=data,
             message="Balances fetched successfully",
+        )
+
+
+class UserActivityFeedView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        me_id = request.user.id
+
+        user_groups = Group.objects.filter(memberships__user=request.user)
+
+        cache_key = f"user_activities_feed_{me_id}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return success_response(
+                data=cached_data,
+                message="User activity feed fetched from cache successfully",
+            )
+
+        expenses = (
+            Expense.objects.filter(group__in=user_groups)
+            .select_related("created_by", "group")
+            .prefetch_related("payers__user", "participants__user")
+            .order_by("-created_at")[:50]
+        )
+
+        settlements = (
+            Settlement.objects.filter(group__in=user_groups)
+            .select_related("paid_by", "paid_to", "created_by", "group")
+            .order_by("-created_at")[:50]
+        )
+
+        expense_activities = []
+        for e in expenses:
+            act = _build_expense_activity(e, me_id)
+            act["group_name"] = e.group.name
+            expense_activities.append(act)
+
+        settlement_activities = []
+        for s in settlements:
+            act = _build_settlement_activity(s, me_id)
+            act["group_name"] = s.group.name
+            settlement_activities.append(act)
+
+        activities = sorted(
+            chain(expense_activities, settlement_activities),
+            key=lambda x: x["created_at"],
+            reverse=True,
+        )[:50]
+
+        cache.set(cache_key, activities, timeout=60)
+
+        return success_response(
+            data=activities,
+            message="User activity feed fetched successfully",
         )

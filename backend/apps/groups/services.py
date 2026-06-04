@@ -12,6 +12,7 @@ from .selectors import (
     get_group_member,
     is_admin_or_owner,
     is_owner,
+    has_setting_permission,
 )
 
 from .enums import (
@@ -20,6 +21,15 @@ from .enums import (
 )
 
 from apps.accounts.models import User
+from apps.notifications.services import (
+    notify_member_removed,
+    notify_member_left,
+    notify_ownership_transfer,
+    notify_role_change
+)
+from apps.expenses.services import calculate_group_balances
+from .tasks import send_invitation_email_task
+
 
 
 def create_group(
@@ -27,10 +37,12 @@ def create_group(
     user,
     name,
     description="",
+    avatar=None,
 ):
     group = Group.objects.create(
         name=name,
         description=description,
+        avatar=avatar,
         created_by=user,
     )
 
@@ -86,7 +98,6 @@ def invite_member(
             email=email,
         )
 
-    from .tasks import send_invitation_email_task
     send_invitation_email_task.delay(invitation.id)
 
     return invitation
@@ -139,7 +150,17 @@ def remove_group_member(
     actor,
     member,
 ):
+    balances = calculate_group_balances(group=member.group)
+    member_balance = balances.get(member.user_id, {}).get("balance", 0)
+    
+    if member_balance != 0:
+        raise ValueError(
+            f"Cannot remove member with active balance ({member_balance}). "
+            "Please settle all debts first."
+        )
+
     actor_membership = get_group_member(
+
         group=member.group,
         user=actor,
     )
@@ -149,8 +170,9 @@ def remove_group_member(
             "You are not a group member"
         )
 
-    if not is_admin_or_owner(
-        actor_membership
+    if not has_setting_permission(
+        actor_membership.role,
+        member.group.settings.get("remove_members", "admin")
     ):
         raise ValueError(
             "Permission denied"
@@ -166,7 +188,18 @@ def remove_group_member(
             "Use leave group instead"
         )
 
+    notify_member_removed(
+        actor_id=actor.id,
+        member_user_id=member.user_id,
+        member_email=member.user.email,
+        group_id=member.group.id,
+        group_name=member.group.name
+    )
+
     member.delete()
+
+
+
 
 @transaction.atomic
 def leave_group(
@@ -184,7 +217,17 @@ def leave_group(
             "You are not a member"
         )
 
+    balances = calculate_group_balances(group=group)
+    user_balance = balances.get(user.id, {}).get("balance", 0)
+    
+    if user_balance != 0:
+        raise ValueError(
+            f"Cannot leave group with an active balance ({user_balance}). "
+            "Please settle up first."
+        )
+
     if is_owner(membership):
+
         owner_count = GroupMember.objects.filter(
             group=group,
             role=GroupRole.OWNER,
@@ -195,7 +238,20 @@ def leave_group(
                 "Transfer ownership before leaving"
             )
 
+    owner = GroupMember.objects.filter(group=group, role=GroupRole.OWNER).first()
+
+    if owner:
+        notify_member_left(
+            owner_id=owner.user_id,
+            user_email=user.email,
+            group_id=group.id,
+            group_name=group.name
+        )
+
     membership.delete()
+
+
+
 
 @transaction.atomic
 def transfer_ownership(
@@ -244,6 +300,16 @@ def transfer_ownership(
     current_owner_membership.save()
     target_membership.save()
 
+    notify_ownership_transfer(
+        new_owner_id=target_member.id,
+        old_owner_id=current_owner.id,
+        group_id=group.id,
+        group_name=group.name,
+        new_owner_name=target_member.full_name
+    )
+
+
+
 def update_member_role(
     *,
     actor,
@@ -273,21 +339,52 @@ def update_member_role(
     member.role = role
     member.save()
 
-    from .tasks import send_role_update_email_task
-    send_role_update_email_task.delay(member.id)
+    notify_role_change(
+        user_id=member.user_id,
+        actor_id=actor.id,
+        group_id=member.group.id,
+        group_name=member.group.name,
+        user_name=member.user.full_name,
+        new_role=role
+    )
 
     return member
 
+
+
 def build_group_permissions(membership):
     role = membership.role
+    settings = membership.group.settings
 
     return {
-        "can_invite_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
-        "can_remove_members": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_invite_members": has_setting_permission(role, settings.get("invite_members", "admin")),
+        "can_remove_members": has_setting_permission(role, settings.get("remove_members", "admin")),
         "can_update_roles": role == GroupRole.OWNER,
+        "can_update_group": has_setting_permission(role, settings.get("update_group", "admin")),
         "can_transfer_ownership": role == GroupRole.OWNER,
         "can_delete_group": role == GroupRole.OWNER,
         "can_leave_group": role != GroupRole.OWNER,
-        "can_add_expense": True,  # For now, all members can add expenses
-        "can_manage_expenses": role in [GroupRole.OWNER, GroupRole.ADMIN],
+        "can_add_expense": has_setting_permission(role, settings.get("add_expense", "member")),
+        "can_manage_expenses": has_setting_permission(role, settings.get("manage_expenses", "admin")),
     }
+
+
+@transaction.atomic
+def delete_group(*, group, user):
+    membership = get_group_member(group=group, user=user)
+
+    if not membership:
+        raise ValueError("You are not a member of this group")
+
+    if not is_owner(membership):
+        raise ValueError("Only the group owner can delete the group")
+
+    balances = calculate_group_balances(group=group)
+    for balance_data in balances.values():
+        if balance_data.get("balance", 0) != 0:
+            raise ValueError(
+                "Cannot delete group with active balances. "
+                "Please settle all debts before deleting the group."
+            )
+
+    group.delete()

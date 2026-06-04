@@ -7,7 +7,7 @@ import type { Group, CreateGroupPayload, GroupInvitation } from "./types"
 export function useCreateGroup() {
   const queryClient = useQueryClient()
 
-  return useMutation<ApiSuccess<Group>, ApiError, CreateGroupPayload>({
+  return useMutation<ApiSuccess<Group>, ApiError, FormData | CreateGroupPayload>({
     mutationFn: (payload) => api.post<Group>("/groups/", payload),
     onSuccess: () => {
       // Invalidate and refetch groups list
@@ -105,3 +105,54 @@ export function useUpdateMemberRole(groupId: string) {
     },
   })
 }
+/** PATCH /groups/:groupId/ */
+export function useUpdateGroup(groupId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<ApiSuccess<Group>, ApiError, FormData | Partial<CreateGroupPayload>>({
+    mutationFn: (payload) => api.patch<Group>(`/groups/${groupId}/`, payload),
+    onSuccess: () => {
+      // Surgically invalidate only the group metadata, not members/invitations/etc.
+      queryClient.invalidateQueries({ queryKey: ["groups", groupId], exact: true })
+      // Also refresh the sidebar list entry
+      queryClient.invalidateQueries({ queryKey: ["groups"], exact: true })
+    },
+
+  })
+}
+
+/** DELETE /groups/:groupId/ */
+export function useDeleteGroup(groupId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<ApiSuccess<null>, ApiError, void>({
+    mutationFn: () => api.delete(`/groups/${groupId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups"] })
+    },
+  })
+}
+
+/**
+ * Optimized hook to get all mutations for a group
+ */
+export function useGroupMutations(groupId: string) {
+  const updateGroup = useUpdateGroup(groupId)
+  const inviteMember = useInviteMember(groupId)
+  const removeMember = useRemoveMember(groupId)
+  const leaveGroup = useLeaveGroup(groupId)
+  const transferOwnership = useTransferOwnership(groupId)
+  const updateMemberRole = useUpdateMemberRole(groupId)
+  const deleteGroup = useDeleteGroup(groupId)
+
+  return {
+    updateGroup,
+    inviteMember,
+    removeMember,
+    leaveGroup,
+    transferOwnership,
+    updateMemberRole,
+    deleteGroup
+  }
+}
+

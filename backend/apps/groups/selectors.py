@@ -63,3 +63,8 @@ def is_admin_or_owner(member):
         GroupRole.ADMIN,
         GroupRole.OWNER,
     ]
+
+
+def has_setting_permission(user_role, setting_value):
+    hierarchy = {"member": 1, "admin": 2, "owner": 3}
+    return hierarchy.get(user_role, 0) >= hierarchy.get(setting_value, 0)
