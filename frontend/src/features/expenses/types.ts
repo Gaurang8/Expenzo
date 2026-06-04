@@ -7,6 +7,14 @@ export interface UserInfo {
   avatar?: string
 }
 
+export interface Category {
+  id: number
+  name: string
+  icon: string
+  is_default: boolean
+  created_by?: number
+}
+
 export interface ExpensePayerPayload {
   user: number
   paid_amount: string
@@ -23,6 +31,7 @@ export interface CreateExpensePayload {
   description?: string
   total_amount: string
   currency?: string
+  category_id?: number | null
   split_type: SplitType
   expense_date: string
   payers: ExpensePayerPayload[]
@@ -61,6 +70,7 @@ export interface Expense {
   description: string | null
   total_amount: string
   currency: string
+  category: Category
   split_type: SplitType
   expense_date: string
   created_by: number
@@ -95,6 +105,7 @@ export interface ExpenseActivity {
   description: string | null
   total_amount: string
   currency: string
+  category: Category
   split_type: SplitType
   expense_date: string
   created_at: string

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { api, ApiError } from "@/lib/api"
 import type { ApiSuccess } from "@/lib/types"
-import type { CreateExpensePayload, Expense, CreateSettlementPayload, Settlement } from "./types"
+import type { CreateExpensePayload, Expense, CreateSettlementPayload, Settlement, Category } from "./types"
 
 export function useCreateExpense(groupId: string | undefined) {
   const queryClient = useQueryClient()
@@ -105,3 +105,15 @@ export function useUpdateSettlement(groupId: string | undefined, settlementId: s
     },
   })
 }
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient()
+
+  return useMutation<ApiSuccess<Category>, ApiError, { name: string; icon: string }>({
+    mutationFn: (data) => api.post<Category>("/expenses/categories/", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+    },
+  })
+}
+

@@ -13,13 +13,14 @@ from django.core.cache import cache
 from apps.groups.models import Group, GroupMember
 from apps.groups.selectors import has_setting_permission
 
-from .models import Expense, Settlement
+from .models import Expense, Settlement, Category
 
 from .serializers import (
     CreateExpenseSerializer,
     ExpenseDetailSerializer,
     CreateSettlementSerializer,
     SettlementDetailSerializer,
+    CategorySerializer,
 )
 from .services import (
     create_expense,
@@ -31,6 +32,8 @@ from .services import (
 )
 from apps.accounts.models import User
 from decimal import Decimal
+
+from django.db.models import Q
 
 
 def is_group_member(*, group, user):
@@ -61,9 +64,13 @@ class CreateExpenseView(APIView):
         membership = GroupMember.objects.filter(group=group, user=request.user).first()
         if not membership:
             return error_response(message="You are not a group member", status_code=403)
-            
-        if not has_setting_permission(membership.role, group.settings.get("add_expense", "member")):
-            return error_response(message="Permission denied to add expense", status_code=403)
+
+        if not has_setting_permission(
+            membership.role, group.settings.get("add_expense", "member")
+        ):
+            return error_response(
+                message="Permission denied to add expense", status_code=403
+            )
 
         serializer = CreateExpenseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -110,12 +117,18 @@ class ExpenseDetailView(APIView):
 
     def delete(self, request, expense_id):
         expense = get_object_or_404(Expense, id=expense_id)
-        membership = GroupMember.objects.filter(group=expense.group, user=request.user).first()
+        membership = GroupMember.objects.filter(
+            group=expense.group, user=request.user
+        ).first()
         if not membership:
             return error_response(message="You are not a group member", status_code=403)
-            
-        if expense.created_by != request.user and not has_setting_permission(membership.role, expense.group.settings.get("manage_expenses", "admin")):
-            return error_response(message="Permission denied to manage expense", status_code=403)
+
+        if expense.created_by != request.user and not has_setting_permission(
+            membership.role, expense.group.settings.get("manage_expenses", "admin")
+        ):
+            return error_response(
+                message="Permission denied to manage expense", status_code=403
+            )
         group_id = expense.group_id
         expense.delete()
         invalidate_group_caches(group_id)
@@ -123,12 +136,18 @@ class ExpenseDetailView(APIView):
 
     def patch(self, request, expense_id):
         expense = get_object_or_404(Expense, id=expense_id)
-        membership = GroupMember.objects.filter(group=expense.group, user=request.user).first()
+        membership = GroupMember.objects.filter(
+            group=expense.group, user=request.user
+        ).first()
         if not membership:
             return error_response(message="You are not a group member", status_code=403)
-            
-        if expense.created_by != request.user and not has_setting_permission(membership.role, expense.group.settings.get("manage_expenses", "admin")):
-            return error_response(message="Permission denied to manage expense", status_code=403)
+
+        if expense.created_by != request.user and not has_setting_permission(
+            membership.role, expense.group.settings.get("manage_expenses", "admin")
+        ):
+            return error_response(
+                message="Permission denied to manage expense", status_code=403
+            )
 
         serializer = CreateExpenseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -200,14 +219,19 @@ class SettlementDetailView(APIView):
             message="Settlement fetched successfully",
         )
 
-    def delete(self, request, settlement_id):
-        settlement = get_object_or_404(Settlement, id=settlement_id)
-        if not is_group_member(group=settlement.group, user=request.user):
-            return error_response(message="You are not a group member", status_code=403)
-        group_id = settlement.group_id
+    def delete(self, request, group_id, settlement_id):
+        group = get_object_or_404(Group, id=group_id)
+        if not is_group_member(group=group, user=request.user):
+            return error_response(
+                "You are not a member of this group", status.HTTP_403_FORBIDDEN
+            )
+
+        settlement = get_object_or_404(Settlement, id=settlement_id, group=group)
+
         settlement.delete()
         invalidate_group_caches(group_id)
-        return success_response(message="Settlement deleted successfully")
+
+        return success_response({"message": "Settlement deleted successfully"})
 
     def patch(self, request, settlement_id):
         settlement = get_object_or_404(Settlement, id=settlement_id)
@@ -254,6 +278,15 @@ def _build_expense_activity(expense, me_id):
         "description": expense.description,
         "total_amount": str(expense.total_amount),
         "currency": expense.currency,
+        "category": (
+            {
+                "id": expense.category.id,
+                "name": expense.category.name,
+                "icon": expense.category.icon,
+            }
+            if expense.category
+            else {"name": "Other", "icon": "Tag", "id": None}
+        ),
         "split_type": expense.split_type,
         "expense_date": expense.expense_date.isoformat(),
         "created_at": expense.created_at.isoformat(),
@@ -478,4 +511,26 @@ class UserActivityFeedView(APIView):
         return success_response(
             data=activities,
             message="User activity feed fetched successfully",
+        )
+
+
+class CategoryListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        categories = Category.objects.filter(
+            Q(is_default=True) | Q(created_by=request.user)
+        ).distinct()
+        serializer = CategorySerializer(categories, many=True)
+        return success_response(serializer.data)
+
+    def post(self, request):
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(created_by=request.user, is_default=False)
+            return success_response(
+                serializer.data, status_code=status.HTTP_201_CREATED
+            )
+        return error_response(
+            serializer.errors, status_code=status.HTTP_400_BAD_REQUEST
         )

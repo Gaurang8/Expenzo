@@ -1,9 +1,11 @@
+import { createElement } from "react"
 import { useUserActivities } from "@/features/expenses/queries"
 import { useMe } from "@/features/auth/queries"
-import { Loader2, ArrowDown, ArrowUp, Wallet, Calendar, ChevronDown } from "lucide-react"
+import { Loader2, ArrowDown, Wallet, Calendar, ChevronDown } from "lucide-react"
 import type { ActivityItem, SettlementActivity } from "@/features/expenses/types"
 import { Link } from "react-router-dom"
 import { formatDate } from "@/lib/format"
+import { getCategoryIcon } from "@/features/expenses/constants"
 
 function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undefined }) {
     let iconBgClass: string
@@ -33,22 +35,22 @@ function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undef
             statusText = "NOT INVOLVED"
             statusColorClass = "text-slate-400"
             iconBgClass = "bg-slate-200 text-slate-500"
-            Icon = Wallet
+            Icon = getCategoryIcon(item.category?.icon)
         } else if (net > 0) {
             statusText = "YOU ARE OWED"
             statusColorClass = "text-emerald-500"
             iconBgClass = "bg-emerald-500 text-white"
-            Icon = ArrowDown
+            Icon = getCategoryIcon(item.category?.icon)
         } else if (net < 0) {
             statusText = "YOU OWE"
             statusColorClass = "text-rose-500"
             iconBgClass = "bg-rose-500 text-white"
-            Icon = ArrowUp
+            Icon = getCategoryIcon(item.category?.icon)
         } else {
             statusText = "SETTLED"
             statusColorClass = "text-slate-500"
             iconBgClass = "bg-slate-500 text-white"
-            Icon = Wallet
+            Icon = getCategoryIcon(item.category?.icon)
         }
     } else {
         const s = item as SettlementActivity
@@ -84,7 +86,7 @@ function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undef
     return (
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex gap-4 items-center w-full transition-shadow hover:shadow-[0_4px_12px_rgb(0,0,0,0.08)] relative z-10">
             <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center ${iconBgClass}`}>
-                <Icon className="w-5 h-5" />
+                {createElement(Icon, { className: "w-5 h-5" })}
             </div>
             <div className="flex-1 min-w-0">
                 <p className="text-sm text-slate-800 truncate">
