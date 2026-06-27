@@ -41,7 +41,6 @@ services:
 
   worker:
     build: .
-    container_name: splitwise_celery
     command: celery -A config worker -l info
     volumes:
       - .:/app
@@ -52,6 +51,8 @@ services:
         condition: service_healthy
     env_file:
       - .env
+
+
 
 volumes:
   postgres_data:

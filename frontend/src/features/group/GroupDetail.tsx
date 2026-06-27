@@ -11,7 +11,8 @@ import { useMe } from "@/features/auth/queries"
 import { useDeleteExpense, useDeleteSettlement } from "@/features/expenses/mutations"
 import { ExpenseFormDialog } from "@/features/expenses/CreateExpenseDialog"
 import { SettlementFormDialog } from "@/features/expenses/CreateSettlementDialog"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 import { GroupMembersSheet } from "./GroupMembersSheet"
 import { ExpenseDetailSheet } from "@/features/expenses/ExpenseDetailSheet"
 import { BalanceBreakdownDialog } from "./BalanceBreakdownDialog"
@@ -66,16 +67,16 @@ function ExpenseCard({ item }: { item: ExpenseActivity }) {
                 <div className={`${isLight ? 'bg-slate-500/15' : 'bg-white/20'} p-2 rounded-lg`}>
                     {createElement(getCategoryIcon(item.category?.icon), { className: "size-4" })}
                 </div>
-                <span className="font-semibold text-sm truncate">{item.title}</span>
+                <span className="font-semibold text-base truncate">{item.title}</span>
             </div>
             <div className="flex justify-between items-end">
                 <div>
                     <div className="text-xl font-bold">{netDisplay}</div>
-                    <div className={`text-[11px] ${subColor} font-medium`}>
+                    <div className={`text-xs ${subColor} font-medium`}>
                         {payerTypography} paid {formatCurrency(item.total_amount)}
                     </div>
                 </div>
-                <div className={`text-[11px] font-bold uppercase tracking-wider ${subColor} text-right`}>
+                <div className={`text-xs font-bold uppercase tracking-wider ${subColor} text-right`}>
                     {statusLabel}
                 </div>
             </div>
@@ -117,14 +118,14 @@ function SettlementCard({ item }: { item: SettlementActivity }) {
                 <div className={`${isLight ? 'bg-slate-500/15' : 'bg-white/20'} p-2 rounded-lg`}>
                     <Wallet className="size-4" />
                 </div>
-                <span className="font-semibold text-sm">Settlement</span>
+                <span className="font-semibold text-base">Settlement</span>
             </div>
             <div className="flex justify-between items-end">
                 <div>
                     <div className="text-xl font-bold">{formatCurrency(amount)}</div>
-                    <div className={`text-[11px] ${subColor} font-medium`}>{description}</div>
+                    <div className={`text-xs ${subColor} font-medium`}>{description}</div>
                 </div>
-                <div className={`text-[11px] font-bold uppercase tracking-wider ${subColor} text-right`}>
+                <div className={`text-xs font-bold uppercase tracking-wider ${subColor} text-right`}>
                     {statusLabel}
                 </div>
             </div>
@@ -150,7 +151,7 @@ const GroupDetail = () => {
     const { group, members, isLoading: groupLoading } = useGroupDetail(groupId)
     const { data: meRes } = useMe()
     const me = meRes?.data
-    const { data: activitiesRes, isLoading: activitiesLoading } = useGroupActivities(groupId)
+    const { data: activitiesRes, isLoading: activitiesLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useGroupActivities(groupId)
     const { data: balancesRes } = useGroupBalances(groupId)
     const balancesData = balancesRes?.data?.simplified_transactions || []
 
@@ -188,7 +189,15 @@ const GroupDetail = () => {
         setIsDetailOpen(false)
     }
 
-    const activities = activitiesRes?.data || []
+    const activities = activitiesRes?.pages?.flatMap(page => page.data.results) || []
+
+    const { ref, isIntersecting } = useIntersectionObserver()
+
+    useEffect(() => {
+        if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage()
+        }
+    }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
 
 
     if (groupLoading || !group) {
@@ -360,6 +369,20 @@ const GroupDetail = () => {
                                     </div>
                                 </div>
                             ))}
+                            {hasNextPage ? (
+                                <div ref={ref as React.RefObject<HTMLDivElement>} className="flex justify-center pt-8 border-t border-slate-100 pb-8">
+                                    <Loader2 className="size-5 animate-spin text-slate-400" />
+                                </div>
+                            ) : (
+                                <div className="mt-8 flex items-center justify-center relative py-6">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <div className="w-full border-t border-slate-200"></div>
+                                    </div>
+                                    <div className="relative bg-white px-4 text-xs font-medium text-slate-400">
+                                        You've reached the end of the activity
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

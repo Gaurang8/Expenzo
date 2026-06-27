@@ -36,6 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (isSuccess && data) {
+      // Check admin authorization
+      const currentRouteObj = routesMap.find(r => r.path === location.pathname || (r.path !== "/" && location.pathname.startsWith(r.path + "/")))
+      
+      if (currentRouteObj?.adminRequired && !data.data.is_staff) {
+        navigate(ROUTES.HOME, { replace: true })
+        return
+      }
+
+      if (isPublicRoute) {
+        navigate(ROUTES.HOME, { replace: true })
+        return
+      }
+      
       setUser(data.data)
     }
 
@@ -46,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         navigate(ROUTES.LOGIN)
       }
     }
-  }, [token, data, isSuccess, isError, isPublicRoute, setUser, logout, navigate, setLoading])
+  }, [token, data, isSuccess, isError, isPublicRoute, setUser, logout, navigate, setLoading, location.pathname])
 
   // Show nothing or a loading spinner while checking auth on private routes
   if (isLoading && !isPublicRoute && token) {

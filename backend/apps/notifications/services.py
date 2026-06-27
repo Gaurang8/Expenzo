@@ -1,4 +1,4 @@
-from .tasks import send_notification_task
+from .tasks import send_notification_task, send_batch_notifications_task
 
 def notify_member_removed(actor_id, member_user_id, member_email, group_id, group_name, send_email=True):
     send_notification_task.delay(
@@ -75,22 +75,28 @@ def notify_role_change(user_id, actor_id, group_id, group_name, user_name, new_r
     )
 
 def notify_expense_added(group_id, group_name, created_by_id, created_by_name, title, participants, amount_str, send_email=True):
+    notifications_data = []
     for participant_id in participants:
         if participant_id != created_by_id:
-            send_notification_task.delay(
-                user_id=participant_id,
-                notification_type='expense_added',
-                title=f"New expense in {group_name}",
-                message=f"<strong>{created_by_name}</strong> added a new expense: <strong>{title}</strong>.",
-                link=f"/groups/{group_id}",
-                send_email=send_email,
-                extra_context={
+            notifications_data.append({
+                'user_id': participant_id,
+                'notification_type': 'expense_added',
+                'title': f"New expense in {group_name}",
+                'message': f"<strong>{created_by_name}</strong> added a new expense: <strong>{title}</strong>.",
+                'link': f"/groups/{group_id}",
+                'extra_context': {
                     'group_name': group_name,
                     'expense_title': title,
                     'actor_name': created_by_name,
                     'amount': amount_str
                 }
-            )
+            })
+
+    if notifications_data:
+        send_batch_notifications_task.delay(
+            notifications_data=notifications_data,
+            send_email=send_email,
+        )
 
 def notify_settlement(receiver_id, payer_name, amount, group_name, group_id, send_email=True):
     send_notification_task.delay(
