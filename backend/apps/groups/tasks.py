@@ -11,22 +11,31 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from apps.groups.models import GroupInvitation, GroupMember
 
-@shared_task
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=7200,
+    max_retries=20,
+)
 def send_invitation_email_task(invitation_id):
     try:
         invitation = GroupInvitation.objects.select_related('group', 'invited_by').get(id=invitation_id)
-        
-        subject = f"You've been invited to join {invitation.group.name} on Expenzo"
-        
-        context = {
-            'inviter_name': invitation.invited_by.full_name,
-            'group_name': invitation.group.name,
-            'action_url': f"{settings.FRONTEND_URL}/groups/{invitation.group.id}",
-        }
-        
-        html_message = render_to_string('emails/invitation.html', context)
-        plain_message = strip_tags(html_message)
-        
+    except GroupInvitation.DoesNotExist:
+        logger.error(f"Invitation with id {invitation_id} not found")
+        return
+
+    subject = f"You've been invited to join {invitation.group.name} on Expenzo"
+    
+    context = {
+        'inviter_name': invitation.invited_by.full_name,
+        'group_name': invitation.group.name,
+        'action_url': f"{settings.FRONTEND_URL}/groups/{invitation.group.id}",
+    }
+    
+    html_message = render_to_string('emails/invitation.html', context)
+    plain_message = strip_tags(html_message)
+    
+    try:
         send_mail(
             subject=subject,
             message=plain_message,
@@ -36,24 +45,32 @@ def send_invitation_email_task(invitation_id):
             fail_silently=False,
         )
         logger.info(f"Invitation email sent to {invitation.email}")
-    except GroupInvitation.DoesNotExist:
-        logger.error(f"Invitation with id {invitation_id} not found")
     except Exception as e:
         logger.error(f"Failed to send invitation email: {str(e)}")
+        raise e
 
 
-@shared_task
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=7200,
+    max_retries=20,
+)
 def send_role_update_email_task(member_id):
     try:
         member = GroupMember.objects.get(id=member_id)
+    except GroupMember.DoesNotExist:
+        logger.error(f"GroupMember with id {member_id} not found")
+        return
         
-        subject = f"Your role in {member.group.name} has been updated"
-        message = (
-            f"Hello {member.user.full_name},\n\n"
-            f"Your role in the group '{member.group.name}' has been updated to: {member.role}.\n\n"
-            f"Thanks,\nThe Expanzo Team"
-        )
-        
+    subject = f"Your role in {member.group.name} has been updated"
+    message = (
+        f"Hello {member.user.full_name},\n\n"
+        f"Your role in the group '{member.group.name}' has been updated to: {member.role}.\n\n"
+        f"Thanks,\nThe Expanzo Team"
+    )
+    
+    try:
         send_mail(
             subject=subject,
             message=message,
@@ -62,10 +79,10 @@ def send_role_update_email_task(member_id):
             fail_silently=False,
         )
         logger.info(f"Role update email sent to {member.user.email}")
-    except GroupMember.DoesNotExist:
-        logger.error(f"GroupMember with id {member_id} not found")
     except Exception as e:
         logger.error(f"Failed to send role update email: {str(e)}")
+        raise e
+
 
 
 @shared_task

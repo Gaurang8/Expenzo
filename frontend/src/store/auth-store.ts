@@ -7,6 +7,8 @@ export interface User {
   full_name: string
   date_format?: string
   avatar?: string | null
+  is_staff?: boolean
+  is_superuser?: boolean
 }
 
 interface AuthState {

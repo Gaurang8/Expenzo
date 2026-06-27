@@ -9,7 +9,8 @@ import {
   Split,
   ChevronsRight,
   ChevronsLeft,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react"
 
 import {
@@ -82,7 +83,7 @@ export function AppSidebar() {
   const { data: activitiesRes } = useUserActivities()
   const { data: meRes } = useMe()
   const meId = meRes?.data?.id
-  const activities = activitiesRes?.data || []
+  const activities = activitiesRes?.pages?.flatMap(page => page.data.results) || []
 
   const recentActivity = [...activities].sort((a, b) => {
     const dateA = a.type === 'expense' ? a.expense_date : a.settled_at
@@ -188,6 +189,26 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 )
               })}
+              
+              {user?.is_staff && (
+                <SidebarMenuItem className="border-l-4 border-transparent my-1 px-2">
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Admin Panel"
+                    isActive={false}
+                    className="font-semibold! bg-transparent! pl-6 hover:text-indigo-700 h-full"
+                  >
+                    <Link to={ROUTES.ADMIN_DASHBOARD} className="flex flex-1 items-center justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-gray-200 h-8 w-8 rounded-full flex items-center justify-center">
+                          <Shield className="size-4" />
+                        </div>
+                        <span>Admin Panel</span>
+                      </div>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

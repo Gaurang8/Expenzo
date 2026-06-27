@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 
 from apps.common.responses import success_response, error_response
+from apps.common.pagination import CustomPagination
+from django.db.models.functions import TruncMonth
 
 from django.core.cache import cache
 
@@ -35,7 +37,6 @@ from decimal import Decimal
 
 from django.db.models import Q
 
-
 def is_group_member(*, group, user):
     return GroupMember.objects.filter(group=group, user=user).exists()
 
@@ -51,6 +52,9 @@ def invalidate_group_caches(group_id):
             cache.incr(version_key)
         except ValueError:
             cache.set(version_key, 2, timeout=None)
+            
+    if hasattr(cache, 'delete_pattern'):
+        cache.delete_pattern("user_activities_feed_*")
 
 
 class CreateExpenseView(APIView):
@@ -368,7 +372,8 @@ class GroupActivityFeedView(APIView):
         group_version = cache.get(version_key) or 1
 
         # Append version to the user-specific cache key
-        cache_key = f"group_activities_{group_id}_user_{me_id}_v{group_version}"
+        page = request.query_params.get("page", 1)
+        cache_key = f"group_activities_{group_id}_user_{me_id}_v{group_version}_page_{page}"
         cached_data = cache.get(cache_key)
 
         if cached_data:
@@ -399,11 +404,16 @@ class GroupActivityFeedView(APIView):
             reverse=True,
         )
 
+        paginator = CustomPagination()
+        paginator.page_size = 120
+        paginated_activities = paginator.paginate_queryset(activities, request, view=self)
+        response_data = paginator.get_paginated_response(paginated_activities).data["data"]
+
         # Cache for 24 hours
-        cache.set(cache_key, activities, timeout=60 * 60 * 24)
+        cache.set(cache_key, response_data, timeout=60 * 60 * 24)
 
         return success_response(
-            data=activities,
+            data=response_data,
             message="Activity feed fetched successfully",
         )
 
@@ -463,10 +473,12 @@ class UserActivityFeedView(APIView):
 
     def get(self, request):
         me_id = request.user.id
+        month_filter = request.query_params.get("month")
+        page = request.query_params.get("page", 1)
 
         user_groups = Group.objects.filter(memberships__user=request.user)
 
-        cache_key = f"user_activities_feed_{me_id}"
+        cache_key = f"user_activities_feed_{me_id}_month_{month_filter}_page_{page}"
         cached_data = cache.get(cache_key)
 
         if cached_data:
@@ -475,17 +487,35 @@ class UserActivityFeedView(APIView):
                 message="User activity feed fetched from cache successfully",
             )
 
+        expenses_qs = Expense.objects.filter(group__in=user_groups)
+        settlements_qs = Settlement.objects.filter(group__in=user_groups)
+
+        expense_months = expenses_qs.annotate(month=TruncMonth('expense_date')).values_list('month', flat=True).distinct()
+        settlement_months = settlements_qs.annotate(month=TruncMonth('settled_at')).values_list('month', flat=True).distinct()
+        
+        all_months = sorted(set(list(expense_months) + list(settlement_months)), reverse=True)
+        available_months = [m.strftime("%B %Y") for m in all_months if m]
+
+        if month_filter and month_filter != "All Time":
+            try:
+                import datetime
+                dt = datetime.datetime.strptime(month_filter, "%B %Y")
+                expenses_qs = expenses_qs.filter(expense_date__year=dt.year, expense_date__month=dt.month)
+                settlements_qs = settlements_qs.filter(settled_at__year=dt.year, settled_at__month=dt.month)
+            except ValueError:
+                pass
+
         expenses = (
-            Expense.objects.filter(group__in=user_groups)
+            expenses_qs
             .select_related("created_by", "group")
             .prefetch_related("payers__user", "participants__user")
-            .order_by("-created_at")[:50]
+            .order_by("-created_at")
         )
 
         settlements = (
-            Settlement.objects.filter(group__in=user_groups)
+            settlements_qs
             .select_related("paid_by", "paid_to", "created_by", "group")
-            .order_by("-created_at")[:50]
+            .order_by("-created_at")
         )
 
         expense_activities = []
@@ -504,12 +534,18 @@ class UserActivityFeedView(APIView):
             chain(expense_activities, settlement_activities),
             key=lambda x: x["created_at"],
             reverse=True,
-        )[:50]
+        )
 
-        cache.set(cache_key, activities, timeout=60)
+        paginator = CustomPagination()
+        paginator.page_size = 20
+        paginated_activities = paginator.paginate_queryset(activities, request, view=self)
+        response_data = paginator.get_paginated_response(paginated_activities).data["data"]
+        response_data["available_months"] = available_months
+
+        cache.set(cache_key, response_data, timeout=60)
 
         return success_response(
-            data=activities,
+            data=response_data,
             message="User activity feed fetched successfully",
         )
 

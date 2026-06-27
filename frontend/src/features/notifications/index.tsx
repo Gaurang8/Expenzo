@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { formatDistanceToNow } from "date-fns"
 import { 
@@ -18,6 +19,7 @@ import { useNotifications } from "./queries"
 import { useNotificationMutations } from "./mutations"
 import type { Notification } from "./types"
 import type { PaginatedData, ApiSuccess } from "@/lib/types"
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 
 const typeIcons = {
     role_change: Shield,
@@ -48,6 +50,13 @@ const NotificationsPage = () => {
     
     const notifications = notificationsRes?.pages?.flatMap((page: ApiSuccess<PaginatedData<Notification>>) => page.data.results) || ([] as Notification[])
     const { markAsRead, markAllAsRead } = useNotificationMutations()
+    const { ref, isIntersecting } = useIntersectionObserver()
+
+    useEffect(() => {
+        if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage()
+        }
+    }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
 
     const navigate = useNavigate()
 
@@ -194,22 +203,11 @@ const NotificationsPage = () => {
 
                         {/* PAGINATION CONTROL */}
                         {hasNextPage && (
-                            <div className="flex justify-center pt-8 border-t border-slate-100">
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => fetchNextPage()}
-                                    disabled={isFetchingNextPage}
-                                    className="rounded-full px-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 font-semibold"
-                                >
-                                    {isFetchingNextPage ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
-                                            Loading more...
-                                        </div>
-                                    ) : (
-                                        "Load Earlier Notifications"
-                                    )}
-                                </Button>
+                            <div ref={ref as React.RefObject<HTMLDivElement>} className="flex justify-center pt-8 border-t border-slate-100 pb-8">
+                                <div className="flex items-center gap-2 text-indigo-600 font-semibold text-sm">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+                                    Loading more...
+                                </div>
                             </div>
                         )}
                     </div>

@@ -5,7 +5,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@shared_task
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=7200,
+    max_retries=20,
+)
 def send_password_reset_email_task(email, reset_url):
     logger.info(f"Preparing to send password reset email to {email}")
     
@@ -20,3 +25,5 @@ def send_password_reset_email_task(email, reset_url):
         logger.info(f"Successfully sent password reset email to {email}")
     except Exception as e:
         logger.error(f"Failed to send password reset email to {email}: {str(e)}")
+        raise e
+

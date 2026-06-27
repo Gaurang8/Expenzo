@@ -1,11 +1,18 @@
-import { createElement } from "react"
+import { createElement, useState, useEffect } from "react"
 import { useUserActivities } from "@/features/expenses/queries"
 import { useMe } from "@/features/auth/queries"
 import { Loader2, ArrowDown, Wallet, Calendar, ChevronDown } from "lucide-react"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import type { ActivityItem, SettlementActivity } from "@/features/expenses/types"
 import { Link } from "react-router-dom"
 import { formatDate } from "@/lib/format"
 import { getCategoryIcon } from "@/features/expenses/constants"
+import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
 
 function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undefined }) {
     let iconBgClass: string
@@ -89,16 +96,16 @@ function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undef
                 {createElement(Icon, { className: "w-5 h-5" })}
             </div>
             <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-800 truncate">
+                <p className="text-base text-slate-800 truncate">
                     <span className="font-semibold">{actor}</span> {actionText} <span className="font-semibold">{amountStr}</span>
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">
+                <p className="text-sm text-slate-500 mt-0.5 truncate font-medium">
                     {reasonText}
                 </p>
             </div>
             <div className="text-right shrink-0">
-                <div className="text-xs text-slate-400 font-medium">{timeStr}</div>
-                <div className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${statusColorClass}`}>
+                <div className="text-sm text-slate-500 font-medium">{timeStr}</div>
+                <div className={`text-xs font-bold uppercase tracking-widest mt-1 ${statusColorClass}`}>
                     {statusText}
                 </div>
             </div>
@@ -107,11 +114,21 @@ function ActivityCard({ item, meId }: { item: ActivityItem; meId: number | undef
 }
 
 export function RecentActivityPage() {
-    const { data: activitiesRes, isLoading } = useUserActivities()
+    const [selectedMonth, setSelectedMonth] = useState<string>("All Time")
+    const { data: activitiesRes, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useUserActivities(selectedMonth)
     const { data: meRes } = useMe()
     const meId = meRes?.data?.id
 
-    const activities = activitiesRes?.data || []
+    const activities = activitiesRes?.pages?.flatMap(page => page.data.results) || []
+    const availableMonths = activitiesRes?.pages?.[0]?.data?.available_months || []
+
+    const { ref, isIntersecting } = useIntersectionObserver()
+
+    useEffect(() => {
+        if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage()
+        }
+    }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
     
     // Sort activities by the exact date used for grouping to ensure perfect alternating sequence
     const sortedActivities = [...activities].sort((a, b) => {
@@ -135,13 +152,29 @@ export function RecentActivityPage() {
                 <h1 className="text-3xl font-bold tracking-tight text-[#1e293b]">Recent Activity</h1>
                 <p className="text-slate-500 text-sm font-medium mt-2">Your global activity feed across all groups</p>
                 
-                <div className="mt-6 bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 cursor-pointer hover:bg-slate-200 transition-colors">
-                    May 2026 <Calendar className="w-4 h-4 ml-1" /> <ChevronDown className="w-4 h-4" />
-                </div>
+                {availableMonths.length > 0 && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <div className="mt-6 bg-slate-100 text-slate-700 px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 cursor-pointer hover:bg-slate-200 transition-colors">
+                                {selectedMonth} <Calendar className="w-4 h-4 ml-1" /> <ChevronDown className="w-4 h-4" />
+                            </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                            <DropdownMenuItem onClick={() => setSelectedMonth("All Time")}>
+                                All Time
+                            </DropdownMenuItem>
+                            {availableMonths.map(month => (
+                                <DropdownMenuItem key={month} onClick={() => setSelectedMonth(month)}>
+                                    {month}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </div>
 
             {isLoading ? (
-                <div className="flex justify-center items-center py-20">
+                <div ref={ref} className="flex justify-center pt-8 border-t border-slate-100 pb-8">
                     <Loader2 className="size-8 animate-spin text-slate-300" />
                 </div>
             ) : activities.length === 0 ? (
@@ -158,7 +191,7 @@ export function RecentActivityPage() {
                             <div key={dayLabel} className="relative z-10">
                                 {/* Date Badge */}
                                 <div className="flex justify-center mb-6">
-                                    <span className="bg-slate-100 text-slate-500 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest relative z-20">
+                                    <span className="bg-slate-100 text-slate-500 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest relative z-20">
                                         {dayLabel}
                                     </span>
                                 </div>
@@ -215,15 +248,25 @@ export function RecentActivityPage() {
                         ))}
                     </div>
                     
-                    {/* End of timeline indicator */}
-                    <div className="mt-16 flex items-center justify-center relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-slate-200"></div>
+                    {hasNextPage ? (
+                        <div ref={ref} className="mt-16 flex items-center justify-center relative py-10">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-200"></div>
+                            </div>
+                            <div className="relative bg-white px-4 text-slate-400">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            </div>
                         </div>
-                        <div className="relative bg-white px-4 text-xs font-medium text-slate-400">
-                            You've reached the end of your activity
+                    ) : (
+                        <div className="mt-16 flex items-center justify-center relative py-10">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-200"></div>
+                            </div>
+                            <div className="relative bg-white px-4 text-sm font-medium text-slate-400">
+                                You've reached the end of your activity
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
         </div>
