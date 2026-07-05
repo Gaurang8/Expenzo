@@ -22,8 +22,10 @@ export const ROUTES = {
   NOTIFICATIONS: "/notifications",
   ACTIVITY: "/activities",
   SETTINGS: "/settings",
+  DASHBOARD: "/dashboard",
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password/:uid/:token",
+  UPGRADE: "/upgrade",
   // Admin Routes
   ADMIN_DASHBOARD: "/admin",
   ADMIN_USERS: "/admin/users",
@@ -46,6 +48,9 @@ export interface RouteConfig {
   adminRequired?: boolean
 }
 
+import { DynamicDashboardPage } from "@/features/dashboard/DynamicDashboardPage"
+import { UpgradePage } from "@/features/subscription/UpgradePage"
+
 export const routesMap: RouteConfig[] = [
   {
     path: ROUTES.HOME,
@@ -53,6 +58,13 @@ export const routesMap: RouteConfig[] = [
     authRequired: true,
     isLayoutEnabled: true,
     label: "Home",
+  },
+  {
+    path: ROUTES.DASHBOARD,
+    component: DynamicDashboardPage,
+    authRequired: true,
+    isLayoutEnabled: true,
+    label: "Dashboard",
   },
   {
     path: ROUTES.LOGIN,
@@ -108,6 +120,13 @@ export const routesMap: RouteConfig[] = [
     authRequired: true,
     isLayoutEnabled: true,
     label: "Settings",
+  },
+  {
+    path: ROUTES.UPGRADE,
+    component: UpgradePage,
+    authRequired: true,
+    isLayoutEnabled: true,
+    label: "Upgrade",
   },
   // Admin Routes
   {

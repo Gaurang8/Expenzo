@@ -55,3 +55,43 @@ export interface CreateGroupPayload {
   avatar?: string
   settings?: Partial<Group['settings']>
 }
+
+export interface ExtractedExpenseParticipant {
+  user: number
+  selected: boolean
+  percentage?: string
+  exact_amount?: string
+}
+
+export interface ExtractedExpensePayer {
+  user: number
+  amount: string
+  selected: boolean
+}
+
+export interface ExtractedExpense {
+  title: string
+  category_id: number | null
+  expense_date: string
+  split_type: 'equal' | 'exact' | 'percentage'
+  payers: Record<string, ExtractedExpensePayer>
+  participants: Record<string, ExtractedExpenseParticipant>
+}
+
+export interface ExtractedSettlement {
+  paid_by: number
+  paid_to: number
+  amount: string
+  description?: string
+  settled_at: string
+}
+
+export interface AIChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  expense_payload: ExtractedExpense | null
+  settlement_payload: ExtractedSettlement | null
+  is_actioned?: boolean
+  created_at: string
+}

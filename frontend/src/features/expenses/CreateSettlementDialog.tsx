@@ -16,7 +16,7 @@ import { toast } from "@/lib/toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { GroupMember } from "@/features/group/types"
 import { useMe } from "@/features/auth/queries"
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { getInitials } from "@/lib/format"
@@ -61,7 +61,7 @@ export function SettlementFormDialog({
   const updateSettlement = useUpdateSettlement(groupId, initialData?.id.toString())
   const isPending = createSettlement.isPending || updateSettlement.isPending
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<SettlementFormValues>({
+  const { register, handleSubmit, setValue, control, reset, formState: { errors } } = useForm<SettlementFormValues>({
     resolver: zodResolver(settlementSchema),
     defaultValues: {
       paid_by: me?.id || 0,
@@ -93,8 +93,8 @@ export function SettlementFormDialog({
     }
   }, [open, me, initialData, reset])
 
-  const paidBy = watch('paid_by')
-  const paidTo = watch('paid_to')
+  const paidBy = useWatch({ control, name: 'paid_by' })
+  const paidTo = useWatch({ control, name: 'paid_to' })
 
   const selectedPayer = members.find(m => m.user === paidBy)
   const selectedReceiver = members.find(m => m.user === paidTo)
