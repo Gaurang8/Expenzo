@@ -47,6 +47,15 @@ class User(
         default=False,
     )
 
+    subscription_plan = models.CharField(
+        max_length=20,
+        default="FREE",
+        choices=(
+            ("FREE", "Free"),
+            ("PRO", "Pro"),
+        )
+    )
+
     objects = UserManager()
 
     USERNAME_FIELD = "email"
@@ -55,3 +64,13 @@ class User(
 
     def __str__(self):
         return self.email
+
+class SubscriptionPayment(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="payments")
+    razorpay_order_id = models.CharField(max_length=255)
+    razorpay_payment_id = models.CharField(max_length=255)
+    razorpay_signature = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.razorpay_payment_id}"

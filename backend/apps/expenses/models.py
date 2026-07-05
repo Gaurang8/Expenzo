@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from pgvector.django import VectorField
 
 from apps.common.models import BaseModel
 from apps.groups.models import Group
@@ -75,6 +76,12 @@ class Expense(BaseModel):
     )
 
     expense_date = models.DateTimeField()
+
+    embedding = VectorField(
+        dimensions=768,
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]

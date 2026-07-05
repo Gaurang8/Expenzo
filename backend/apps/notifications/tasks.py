@@ -7,6 +7,8 @@ import logging
 
 from .models import Notification
 from apps.accounts.models import User
+from apps.common.constants import CELERY_RETRY_KWARGS
+from apps.common.utils import send_templated_email
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +66,7 @@ def send_notification_task(
         logger.error(f"Failed to process notification for user {user_id}: {str(e)}")
 
 
-@shared_task(
-    autoretry_for=(Exception,),
-    retry_backoff=60,
-    retry_backoff_max=7200,
-    max_retries=20,
-)
+@shared_task(**CELERY_RETRY_KWARGS)
 def send_notification_email_task(
     user_id,
     notification_type,
@@ -100,30 +97,10 @@ def send_notification_email_task(
     }
 
     subject = email_subject or title
-    html_message = render_to_string(template_name, context)
-    plain_message = strip_tags(html_message)
-
-    try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Notification email ({notification_type}) sent to {user.email}")
-    except Exception as e:
-        logger.error(f"Failed to send notification email ({notification_type}) to {user.email}: {str(e)}")
-        raise e
+    send_templated_email(subject, template_name, context, [user.email])
 
 
-@shared_task(
-    autoretry_for=(Exception,),
-    retry_backoff=60,
-    retry_backoff_max=7200,
-    max_retries=20,
-)
+@shared_task(**CELERY_RETRY_KWARGS)
 def send_batch_notifications_task(
     notifications_data,
     send_email=True,
