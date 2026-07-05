@@ -1,7 +1,7 @@
 import { createElement } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Wallet, ChevronRight, Users, Calendar, Loader2 } from "lucide-react"
+import { Wallet, ChevronRight, Users, Calendar, Loader2, Sparkles } from "lucide-react"
 import { useParams } from "react-router-dom"
 import { useGroupDetail } from "./queries"
 
@@ -13,9 +13,10 @@ import { ExpenseFormDialog } from "@/features/expenses/CreateExpenseDialog"
 import { SettlementFormDialog } from "@/features/expenses/CreateSettlementDialog"
 import { useState, useEffect } from "react"
 import { useIntersectionObserver } from "@/hooks/use-intersection-observer"
-import { GroupMembersSheet } from "./GroupMembersSheet"
+import { GroupMembersSheet } from "./components/GroupMembersSheet"
 import { ExpenseDetailSheet } from "@/features/expenses/ExpenseDetailSheet"
 import { BalanceBreakdownDialog } from "./BalanceBreakdownDialog"
+import { GroupAIChat } from "./GroupAIChat"
 import type { Expense, Settlement, EditActivity } from "@/features/expenses/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import type { ActivityItem, ExpenseActivity, SettlementActivity } from "@/features/expenses/types"
@@ -163,6 +164,7 @@ const GroupDetail = () => {
     const [isDetailOpen, setIsDetailOpen] = useState(false)
     const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null)
     const [isEditOpen, setIsEditOpen] = useState(false)
+    const [isChatOpen, setIsChatOpen] = useState(false)
     const [editingItem, setEditingItem] = useState<EditActivity | null>(null)
 
     const handleActivityClick = (item: ActivityItem) => {
@@ -260,6 +262,15 @@ const GroupDetail = () => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <Button 
+                            variant="outline" 
+                            className="h-9 px-3 rounded-lg border-indigo-200 text-indigo-700 hover:bg-indigo-50 bg-indigo-50/50 flex items-center gap-2"
+                            onClick={() => setIsChatOpen(true)}
+                        >
+                            <Sparkles className="size-4" />
+                            <span className="hidden sm:inline">Ask AI</span>
+                        </Button>
+                        
                         {groupId && (
                             <SettlementFormDialog groupId={groupId} members={members} />
                         )}
@@ -412,6 +423,17 @@ const GroupDetail = () => {
                 open={isBalancesOpen}
                 onOpenChange={setIsBalancesOpen}
             />
+
+            {/* AI Chat Sheet */}
+            {groupId && (
+                <GroupAIChat
+                    groupId={groupId}
+                    groupName={group.name}
+                    members={members}
+                    open={isChatOpen}
+                    onOpenChange={setIsChatOpen}
+                />
+            )}
         </div>
     )
 }

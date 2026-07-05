@@ -156,3 +156,34 @@ export function useGroupMutations(groupId: string) {
   }
 }
 
+/** POST /expenses/groups/:groupId/chat/send/ */
+export function useSendAIChatMessage(groupId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<
+    ApiSuccess<{ user_message: import('./types').AIChatMessage, assistant_message: import('./types').AIChatMessage }>, 
+    ApiError, 
+    { content: string }
+  >({
+    mutationFn: (payload) => api.post(`/expenses/groups/${groupId}/chat/send/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups", groupId, "ai-chat"] })
+    },
+  })
+}
+
+/** PATCH /expenses/groups/:groupId/chat/:messageId/action/ */
+export function useActionAIChatMessage(groupId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<
+    ApiSuccess<{ id: number, is_actioned: boolean }>,
+    ApiError,
+    { messageId: number }
+  >({
+    mutationFn: ({ messageId }) => api.patch(`/expenses/groups/${groupId}/chat/${messageId}/action/`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups", groupId, "ai-chat"] })
+    },
+  })
+}

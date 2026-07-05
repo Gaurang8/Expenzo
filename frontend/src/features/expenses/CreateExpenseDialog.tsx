@@ -13,15 +13,17 @@ import { useCreateExpense, useUpdateExpense, useCreateCategory } from "./mutatio
 import { useCategories } from "./queries"
 import { useMe } from "@/features/auth/queries"
 import { toast } from "@/lib/toast"
+import { api } from "@/lib/api"
 import type { GroupMember } from "@/features/group/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import type { CreateExpensePayload, ExpenseParticipantPayload } from "./types"
 import { formatCurrency, getInitials } from "@/lib/format"
 import type { Expense } from "./types"
 import { getCategoryIcon, ICON_MAP } from "./constants"
+import type { ExtractedExpense } from "@/features/group/types"
 
 type Step = 'main' | 'who_paid' | 'split_type' | 'split_details'
 
@@ -51,14 +53,18 @@ interface ExpenseFormDialogProps {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   initialData?: Expense
+  prefillData?: ExtractedExpense
+  onSuccess?: () => void
 }
 
-export function ExpenseFormDialog({ 
-  groupId, 
-  members, 
-  open: externalOpen, 
+export function ExpenseFormDialog({
+  groupId,
+  members,
+  open: externalOpen,
   onOpenChange: externalOnOpenChange,
-  initialData 
+  initialData,
+  prefillData,
+  onSuccess,
 }: ExpenseFormDialogProps) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = externalOpen !== undefined
@@ -73,7 +79,7 @@ export function ExpenseFormDialog({
   const { data: meRes } = useMe()
   const me = meRes?.data
 
-  const { register, setValue, watch, reset } = useForm<ExpenseFormValues>({
+  const { register, setValue, getValues, control, reset } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       title: "",
@@ -85,12 +91,49 @@ export function ExpenseFormDialog({
     }
   })
 
+  const [suggestedCategory, setSuggestedCategory] = useState<{ id: number; name: string; source?: string; cached?: boolean } | null>(null)
+  const [isSuggesting, setIsSuggesting] = useState(false)
+
+  const title = useWatch({ control, name: "title" })
+  const currentCategoryId = useWatch({ control, name: "category_id" })
+
+  useEffect(() => {
+    if (!title || title.trim().length < 3) {
+      if (suggestedCategory !== null) {
+        setTimeout(() => setSuggestedCategory(null), 0)
+      }
+      return
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSuggesting(true)
+      try {
+        const res = await api.post<Record<string, unknown>>("/expenses/categories/suggest/", { title: title.trim() })
+        if (res?.data) {
+          const suggested = res.data
+          // Only show suggestion if it is different from the current one
+          if (suggested && suggested.id !== currentCategoryId) {
+            setSuggestedCategory(suggested as { id: number; name: string; source?: string; cached?: boolean })
+          } else {
+            setSuggestedCategory(null)
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch category suggestion:", err)
+      } finally {
+        setIsSuggesting(false)
+      }
+    }, 600)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [title, currentCategoryId, suggestedCategory])
+
   const { data: categoriesRes } = useCategories()
-  const categories = categoriesRes?.data || []
+  const categories = useMemo(() => categoriesRes?.data || [], [categoriesRes?.data])
 
   // Auto-select 'Other' category by default if not editing
   useEffect(() => {
-    if (categories.length > 0 && !watch("category_id") && !initialData) {
+    if (categories.length > 0 && !currentCategoryId && !initialData) {
       const otherCat = categories.find(c => c.name.toLowerCase() === "other")
       if (otherCat) {
         setValue("category_id", otherCat.id)
@@ -98,12 +141,12 @@ export function ExpenseFormDialog({
         setValue("category_id", categories[0].id)
       }
     }
-  }, [categories, setValue, watch, initialData])
+  }, [categories, setValue, currentCategoryId, initialData])
 
   // Watch values for computations
-  const payers = watch("payers")
-  const participants = watch("participants")
-  const splitType = watch("split_type")
+  const payers = useWatch({ control, name: "payers" })
+  const participants = useWatch({ control, name: "participants" })
+  const splitType = useWatch({ control, name: "split_type" })
 
   const [searchQuery, setSearchQuery] = useState("")
   const [showCustomCategoryForm, setShowCustomCategoryForm] = useState(false)
@@ -111,12 +154,8 @@ export function ExpenseFormDialog({
   const [customCategoryIcon, setCustomCategoryIcon] = useState("Tag")
   const { mutate: createCategory, isPending: isCreatingCategory } = useCreateCategory()
 
-  // Initialize states when dialog opens
   useEffect(() => {
     if (open && me && members.length > 0) {
-      setStep('main')
-      setSearchQuery("")
-
       const initialPayers: ExpenseFormValues['payers'] = {}
       const initialParticipants: ExpenseFormValues['participants'] = {}
 
@@ -124,17 +163,17 @@ export function ExpenseFormDialog({
         members.forEach(m => {
           const payer = initialData.payers.find(p => p.user === m.user)
           const participant = initialData.participants.find(p => p.user === m.user)
-          
-          initialPayers[m.user.toString()] = { 
-            user: m.user, 
-            amount: payer?.paid_amount || "", 
-            selected: !!payer 
+
+          initialPayers[m.user.toString()] = {
+            user: m.user,
+            amount: payer?.paid_amount || "",
+            selected: !!payer
           }
-          initialParticipants[m.user.toString()] = { 
-            user: m.user, 
-            selected: !!participant, 
-            percentage: participant?.percentage || "", 
-            exact_amount: participant?.owed_amount || "" 
+          initialParticipants[m.user.toString()] = {
+            user: m.user,
+            selected: !!participant,
+            percentage: participant?.percentage || "",
+            exact_amount: participant?.owed_amount || ""
           }
         })
 
@@ -143,6 +182,32 @@ export function ExpenseFormDialog({
           category_id: initialData.category?.id || null,
           expense_date: initialData.expense_date.split('T')[0],
           split_type: initialData.split_type,
+          payers: initialPayers,
+          participants: initialParticipants
+        })
+      } else if (prefillData) {
+        members.forEach(m => {
+          const payer = prefillData.payers[m.user.toString()]
+          const participant = prefillData.participants[m.user.toString()]
+
+          initialPayers[m.user.toString()] = {
+            user: m.user,
+            amount: payer?.amount || "",
+            selected: payer?.selected || false
+          }
+          initialParticipants[m.user.toString()] = {
+            user: m.user,
+            selected: participant?.selected || false,
+            percentage: participant?.percentage || "",
+            exact_amount: participant?.exact_amount || ""
+          }
+        })
+
+        reset({
+          title: prefillData.title,
+          category_id: prefillData.category_id,
+          expense_date: prefillData.expense_date,
+          split_type: prefillData.split_type,
           payers: initialPayers,
           participants: initialParticipants
         })
@@ -163,7 +228,7 @@ export function ExpenseFormDialog({
         })
       }
     }
-  }, [open, me, members, reset, initialData, categories])
+  }, [open, me, members, reset, initialData, prefillData, categories])
 
   const totalPaid = useMemo(() => {
     return Object.values(payers || {})
@@ -230,6 +295,7 @@ export function ExpenseFormDialog({
       updateExpense(payload, {
         onSuccess: () => {
           toast.success("Expense updated successfully")
+          onSuccess?.()
           setOpen(false)
         },
         onError: (err) => {
@@ -240,6 +306,7 @@ export function ExpenseFormDialog({
       createExpense(payload, {
         onSuccess: () => {
           toast.success("Expense added successfully")
+          onSuccess?.()
           setOpen(false)
         },
         onError: (err) => {
@@ -328,13 +395,38 @@ export function ExpenseFormDialog({
                 className="h-12 rounded-xl"
                 {...register("title")}
               />
+              {isSuggesting && (
+                <div className="mt-1.5 text-xs text-indigo-500 animate-pulse flex items-center gap-1.5 px-1">
+                  <span>✨ AI is categorizing...</span>
+                </div>
+              )}
+              {suggestedCategory && !isSuggesting && (
+                <div className="mt-2 flex items-center flex-wrap gap-2 px-1">
+                  <span className="text-xs text-slate-500 font-medium">
+                    {suggestedCategory.source === "gemini" && "✨ Gemini AI suggests:"}
+                    {suggestedCategory.source === "huggingface" && "🤗 Qwen AI suggests:"}
+                    {suggestedCategory.source === "local_rules" && "💡 Rule-based suggests:"}
+                    {suggestedCategory.source === "fallback" && "🛡️ Fallback suggests:"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue("category_id", suggestedCategory.id)
+                      setSuggestedCategory(null)
+                    }}
+                    className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200 transition-all cursor-pointer"
+                  >
+                    {suggestedCategory.name} {suggestedCategory.cached && "⚡"} (Apply)
+                  </button>
+                </div>
+              )}
             </div>
             <div className="min-w-0">
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">Category</label>
               <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 w-full">
                 {categories.map(cat => {
                   const Icon = getCategoryIcon(cat.icon)
-                  const isSelected = watch("category_id") === cat.id
+                  const isSelected = currentCategoryId === cat.id
                   return (
                     <button
                       key={cat.id}
@@ -343,11 +435,10 @@ export function ExpenseFormDialog({
                         setValue("category_id", cat.id)
                         setShowCustomCategoryForm(false)
                       }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
                     >
                       <Icon className="size-3.5" />
                       {cat.name}
@@ -357,11 +448,10 @@ export function ExpenseFormDialog({
                 <button
                   type="button"
                   onClick={() => setShowCustomCategoryForm(!showCustomCategoryForm)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed transition-colors whitespace-nowrap ${
-                    showCustomCategoryForm
-                      ? 'bg-slate-100 text-slate-800 border-slate-400'
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed transition-colors whitespace-nowrap ${showCustomCategoryForm
+                    ? 'bg-slate-100 text-slate-800 border-slate-400'
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700'
+                    }`}
                 >
                   <Plus className="size-3.5" />
                   Custom
@@ -414,11 +504,10 @@ export function ExpenseFormDialog({
                             key={iconName}
                             type="button"
                             onClick={() => setCustomCategoryIcon(iconName)}
-                            className={`p-1.5 rounded-lg border transition-all ${
-                              isSelected
-                                ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
-                                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                            }`}
+                            className={`p-1.5 rounded-lg border transition-all ${isSelected
+                              ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
+                              : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                              }`}
                           >
                             <IconComponent className="size-3.5" />
                           </button>
@@ -718,12 +807,12 @@ export function ExpenseFormDialog({
         <Button
           className="w-full h-12 rounded-xl bg-indigo-700 hover:bg-indigo-600 text-base font-semibold"
           onClick={() => handleCreate({
-            title: watch('title') || '',
-            category_id: watch('category_id'),
-            expense_date: watch('expense_date'),
-            split_type: watch('split_type'),
-            payers: watch('payers'),
-            participants: watch('participants')
+            title: getValues('title') || '',
+            category_id: getValues('category_id'),
+            expense_date: getValues('expense_date'),
+            split_type: getValues('split_type'),
+            payers: getValues('payers'),
+            participants: getValues('participants')
           })}
           disabled={isPending}
         >
@@ -741,7 +830,14 @@ export function ExpenseFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(val) => { 
+      setOpen(val)
+      if (!val) {
+        setStep('main')
+        setSearchQuery("")
+        reset()
+      }
+    }}>
       {!isControlled && (
         <DialogTrigger asChild>
           <Button className="rounded-lg font-semibold h-12 px-4 cursor-pointer bg-indigo-700 hover:bg-indigo-600 shadow-lg shadow-indigo-100">

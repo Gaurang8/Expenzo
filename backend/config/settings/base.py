@@ -56,6 +56,7 @@ LOCAL_APPS = [
     "apps.expenses",
     "apps.notifications",
     "apps.admin_panel",
+    "apps.ai",
 ]
 
 
@@ -130,7 +131,12 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "30/minute", "user": "200/minute"},
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/minute", 
+        "user": "200/minute",
+        "ai": "10/minute",
+        "ai_daily": "100/day"
+    },
 }
 
 
@@ -181,6 +187,10 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID")
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+HUGGINGFACE_API_KEY = env("HUGGINGFACE_API_KEY", default="")
+RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
+RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
 
 # Celery Configuration
 CELERY_BROKER_URL = "redis://redis:6379/2"

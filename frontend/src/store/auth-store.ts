@@ -9,6 +9,7 @@ export interface User {
   avatar?: string | null
   is_staff?: boolean
   is_superuser?: boolean
+  subscription_plan?: "FREE" | "PRO"
 }
 
 interface AuthState {

@@ -10,7 +10,8 @@ import {
   ChevronsRight,
   ChevronsLeft,
   Settings,
-  Shield
+  Shield,
+  LayoutDashboard
 } from "lucide-react"
 
 import {
@@ -53,6 +54,11 @@ const items = [
     title: "Groups",
     url: ROUTES.HOME,
     icon: Users,
+  },
+  {
+    title: "AI Dashboard",
+    url: ROUTES.DASHBOARD,
+    icon: LayoutDashboard,
   },
   {
     title: "Notifications",
@@ -138,6 +144,11 @@ export function AppSidebar() {
   const handleLogout = () => {
     logout()
     navigate(ROUTES.LOGIN)
+  }
+
+  const handleUpgrade = () => {
+    if (user?.subscription_plan === "PRO") return
+    navigate(ROUTES.UPGRADE)
   }
 
   return (
@@ -301,9 +312,9 @@ export function AppSidebar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <Sparkles />
-                    Upgrade to Pro
+                  <DropdownMenuItem onClick={handleUpgrade} disabled={user?.subscription_plan === "PRO"}>
+                    <Sparkles className={user?.subscription_plan === "PRO" ? "text-indigo-500" : ""} />
+                    {user?.subscription_plan === "PRO" ? "Pro Active" : "Upgrade to Pro"}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
 

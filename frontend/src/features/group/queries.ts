@@ -69,3 +69,14 @@ export function useGroupDetail(groupId: string | undefined) {
   }
 }
 
+/** GET /expenses/groups/:groupId/chat/history/ */
+export function useGroupAIChatHistory(groupId: string | undefined) {
+  return useQuery<ApiSuccess<import('./types').AIChatMessage[]>, ApiError>({
+    queryKey: ["groups", groupId, "ai-chat"],
+    queryFn: () => api.get<import('./types').AIChatMessage[]>(`/expenses/groups/${groupId}/chat/history/`),
+    enabled: !!groupId,
+    staleTime: 0,
+  })
+}
+
+

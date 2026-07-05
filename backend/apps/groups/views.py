@@ -148,8 +148,17 @@ class GroupViewSet(viewsets.ModelViewSet):
         if not membership:
             return error_response(message="Permission denied", status_code=403)
 
-        expenses = Expense.objects.filter(group=group).order_by("-expense_date")
-        settlements = Settlement.objects.filter(group=group).order_by("-settled_at")
+        expenses = (
+            Expense.objects.filter(group=group)
+            .select_related("created_by")
+            .prefetch_related("payers__user", "participants__user")
+            .order_by("-expense_date")
+        )
+        settlements = (
+            Settlement.objects.filter(group=group)
+            .select_related("created_by", "paid_by", "paid_to")
+            .order_by("-settled_at")
+        )
 
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = (

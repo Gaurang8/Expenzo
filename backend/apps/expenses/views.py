@@ -8,6 +8,7 @@ from rest_framework import status
 
 from apps.common.responses import success_response, error_response
 from apps.common.pagination import CustomPagination
+from apps.common.throttling import AILimitPerMinute, AILimitPerDay
 from django.db.models.functions import TruncMonth
 
 from django.core.cache import cache
@@ -36,6 +37,8 @@ from apps.accounts.models import User
 from decimal import Decimal
 
 from django.db.models import Q
+from apps.ai.client import ai_service
+
 
 def is_group_member(*, group, user):
     return GroupMember.objects.filter(group=group, user=user).exists()
@@ -52,8 +55,8 @@ def invalidate_group_caches(group_id):
             cache.incr(version_key)
         except ValueError:
             cache.set(version_key, 2, timeout=None)
-            
-    if hasattr(cache, 'delete_pattern'):
+
+    if hasattr(cache, "delete_pattern"):
         cache.delete_pattern("user_activities_feed_*")
 
 
@@ -373,7 +376,9 @@ class GroupActivityFeedView(APIView):
 
         # Append version to the user-specific cache key
         page = request.query_params.get("page", 1)
-        cache_key = f"group_activities_{group_id}_user_{me_id}_v{group_version}_page_{page}"
+        cache_key = (
+            f"group_activities_{group_id}_user_{me_id}_v{group_version}_page_{page}"
+        )
         cached_data = cache.get(cache_key)
 
         if cached_data:
@@ -384,7 +389,7 @@ class GroupActivityFeedView(APIView):
 
         expenses = (
             Expense.objects.filter(group=group)
-            .select_related("created_by")
+            .select_related("created_by", "category")
             .prefetch_related("payers__user", "participants__user")
         )
 
@@ -406,8 +411,12 @@ class GroupActivityFeedView(APIView):
 
         paginator = CustomPagination()
         paginator.page_size = 120
-        paginated_activities = paginator.paginate_queryset(activities, request, view=self)
-        response_data = paginator.get_paginated_response(paginated_activities).data["data"]
+        paginated_activities = paginator.paginate_queryset(
+            activities, request, view=self
+        )
+        response_data = paginator.get_paginated_response(paginated_activities).data[
+            "data"
+        ]
 
         # Cache for 24 hours
         cache.set(cache_key, response_data, timeout=60 * 60 * 24)
@@ -490,33 +499,45 @@ class UserActivityFeedView(APIView):
         expenses_qs = Expense.objects.filter(group__in=user_groups)
         settlements_qs = Settlement.objects.filter(group__in=user_groups)
 
-        expense_months = expenses_qs.annotate(month=TruncMonth('expense_date')).values_list('month', flat=True).distinct()
-        settlement_months = settlements_qs.annotate(month=TruncMonth('settled_at')).values_list('month', flat=True).distinct()
-        
-        all_months = sorted(set(list(expense_months) + list(settlement_months)), reverse=True)
+        expense_months = (
+            expenses_qs.annotate(month=TruncMonth("expense_date"))
+            .values_list("month", flat=True)
+            .distinct()
+        )
+        settlement_months = (
+            settlements_qs.annotate(month=TruncMonth("settled_at"))
+            .values_list("month", flat=True)
+            .distinct()
+        )
+
+        all_months = sorted(
+            set(list(expense_months) + list(settlement_months)), reverse=True
+        )
         available_months = [m.strftime("%B %Y") for m in all_months if m]
 
         if month_filter and month_filter != "All Time":
             try:
                 import datetime
+
                 dt = datetime.datetime.strptime(month_filter, "%B %Y")
-                expenses_qs = expenses_qs.filter(expense_date__year=dt.year, expense_date__month=dt.month)
-                settlements_qs = settlements_qs.filter(settled_at__year=dt.year, settled_at__month=dt.month)
+                expenses_qs = expenses_qs.filter(
+                    expense_date__year=dt.year, expense_date__month=dt.month
+                )
+                settlements_qs = settlements_qs.filter(
+                    settled_at__year=dt.year, settled_at__month=dt.month
+                )
             except ValueError:
                 pass
 
         expenses = (
-            expenses_qs
-            .select_related("created_by", "group")
+            expenses_qs.select_related("created_by", "group", "category")
             .prefetch_related("payers__user", "participants__user")
             .order_by("-created_at")
         )
 
-        settlements = (
-            settlements_qs
-            .select_related("paid_by", "paid_to", "created_by", "group")
-            .order_by("-created_at")
-        )
+        settlements = settlements_qs.select_related(
+            "paid_by", "paid_to", "created_by", "group"
+        ).order_by("-created_at")
 
         expense_activities = []
         for e in expenses:
@@ -538,8 +559,12 @@ class UserActivityFeedView(APIView):
 
         paginator = CustomPagination()
         paginator.page_size = 20
-        paginated_activities = paginator.paginate_queryset(activities, request, view=self)
-        response_data = paginator.get_paginated_response(paginated_activities).data["data"]
+        paginated_activities = paginator.paginate_queryset(
+            activities, request, view=self
+        )
+        response_data = paginator.get_paginated_response(paginated_activities).data[
+            "data"
+        ]
         response_data["available_months"] = available_months
 
         cache.set(cache_key, response_data, timeout=60)
@@ -570,3 +595,48 @@ class CategoryListCreateView(APIView):
         return error_response(
             serializer.errors, status_code=status.HTTP_400_BAD_REQUEST
         )
+
+
+class SuggestCategoryView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [AILimitPerMinute, AILimitPerDay]
+
+    def post(self, request):
+        title = request.data.get("title", "").strip()
+        if not title:
+            return error_response(message="Title is required", status_code=400)
+
+        categories = Category.objects.filter(
+            Q(is_default=True) | Q(created_by=request.user)
+        ).distinct()
+
+        category_map = {cat.name.lower().strip(): cat for cat in categories}
+        category_name_strings = [cat.name for cat in categories]
+
+        suggestion_res = ai_service.get_category_suggestion(
+            title, category_name_strings
+        )
+
+        if suggestion_res:
+            suggested_name = suggestion_res.get("suggestion")
+            source = suggestion_res.get("source")
+            cached = suggestion_res.get("cached", False)
+
+            if suggested_name and suggested_name.lower().strip() in category_map:
+                matched_category = category_map[suggested_name.lower().strip()]
+                response_data = CategorySerializer(matched_category).data
+                response_data["source"] = source
+                response_data["cached"] = cached
+                return success_response(data=response_data)
+
+        # Fallback to "Other" or similar category
+        other_cat = (
+            categories.filter(name__icontains="other").first() or categories.first()
+        )
+        if other_cat:
+            response_data = CategorySerializer(other_cat).data
+            response_data["source"] = "fallback"
+            response_data["cached"] = False
+            return success_response(data=response_data)
+
+        return success_response(data=None)

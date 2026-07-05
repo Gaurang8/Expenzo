@@ -65,6 +65,7 @@ class UserSerializer(serializers.ModelSerializer):
             "date_format",
             "avatar",
             "is_staff",
+            "subscription_plan",
         )
 
 class GoogleLoginSerializer(serializers.Serializer):

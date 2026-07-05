@@ -4,19 +4,14 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from urllib.parse import urlparse
 import logging
+from apps.common.constants import CELERY_RETRY_KWARGS
+from apps.common.utils import send_templated_email
 
 logger = logging.getLogger(__name__)
 
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 from apps.groups.models import GroupInvitation, GroupMember
 
-@shared_task(
-    autoretry_for=(Exception,),
-    retry_backoff=60,
-    retry_backoff_max=7200,
-    max_retries=20,
-)
+@shared_task(**CELERY_RETRY_KWARGS)
 def send_invitation_email_task(invitation_id):
     try:
         invitation = GroupInvitation.objects.select_related('group', 'invited_by').get(id=invitation_id)
@@ -25,37 +20,16 @@ def send_invitation_email_task(invitation_id):
         return
 
     subject = f"You've been invited to join {invitation.group.name} on Expenzo"
-    
     context = {
         'inviter_name': invitation.invited_by.full_name,
         'group_name': invitation.group.name,
         'action_url': f"{settings.FRONTEND_URL}/groups/{invitation.group.id}",
     }
     
-    html_message = render_to_string('emails/invitation.html', context)
-    plain_message = strip_tags(html_message)
-    
-    try:
-        send_mail(
-            subject=subject,
-            message=plain_message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[invitation.email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Invitation email sent to {invitation.email}")
-    except Exception as e:
-        logger.error(f"Failed to send invitation email: {str(e)}")
-        raise e
+    send_templated_email(subject, 'emails/invitation.html', context, [invitation.email])
 
 
-@shared_task(
-    autoretry_for=(Exception,),
-    retry_backoff=60,
-    retry_backoff_max=7200,
-    max_retries=20,
-)
+@shared_task(**CELERY_RETRY_KWARGS)
 def send_role_update_email_task(member_id):
     try:
         member = GroupMember.objects.get(id=member_id)

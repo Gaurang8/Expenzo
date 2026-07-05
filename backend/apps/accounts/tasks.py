@@ -1,16 +1,12 @@
 from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
+from apps.common.constants import CELERY_RETRY_KWARGS
 import logging
 
 logger = logging.getLogger(__name__)
 
-@shared_task(
-    autoretry_for=(Exception,),
-    retry_backoff=60,
-    retry_backoff_max=7200,
-    max_retries=20,
-)
+@shared_task(**CELERY_RETRY_KWARGS)
 def send_password_reset_email_task(email, reset_url):
     logger.info(f"Preparing to send password reset email to {email}")
     

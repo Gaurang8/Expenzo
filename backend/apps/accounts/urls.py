@@ -8,6 +8,8 @@ from .views import (
     ChangePasswordView,
     ForgotPasswordView,
     ResetPasswordView,
+    CreateSubscriptionOrderView,
+    VerifySubscriptionPaymentView,
 )
 
 urlpatterns = [
@@ -18,4 +20,6 @@ urlpatterns = [
     path("change-password/", ChangePasswordView.as_view()),
     path("forgot-password/", ForgotPasswordView.as_view()),
     path("reset-password/<str:uidb64>/<str:token>/", ResetPasswordView.as_view()),
+    path("subscription/create-order/", CreateSubscriptionOrderView.as_view()),
+    path("subscription/verify-payment/", VerifySubscriptionPaymentView.as_view()),
 ]
