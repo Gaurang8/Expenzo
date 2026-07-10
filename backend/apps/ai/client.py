@@ -10,7 +10,7 @@ from pgvector.django import CosineDistance
 from django.core.cache import cache
 from django.conf import settings
 from django.db import models
-from .providers import LangChainProvider, LocalRulesProvider
+from .providers import GeminiProvider, LocalRulesProvider, HuggingFaceAPIProvider
 from apps.expenses.models import Expense
 
 logger = logging.getLogger(__name__)
@@ -29,21 +29,17 @@ class AIService:
         # Secondary: HuggingFace Mistral/Qwen (Free, fast inference without restrictive daily limits)
         hf_api_key = getattr(settings, "HUGGINGFACE_API_KEY", None)
         self.providers.append(
-            LangChainProvider(
+            HuggingFaceAPIProvider(
                 model_name="Qwen/Qwen2.5-7B-Instruct",
-                model_provider="huggingface",
-                api_key=hf_api_key,
-                timeout=15,
-                max_new_tokens=1024,
+                api_key=hf_api_key
             )
         )
 
         # Fallback/Advanced: Gemini (For complex, unstructured, or rare expenses)
         gemini_api_key = getattr(settings, "GEMINI_API_KEY", None)
         self.providers.append(
-            LangChainProvider(
+            GeminiProvider(
                 model_name="gemini-2.5-flash",
-                model_provider="google_genai",
                 api_key=gemini_api_key,
             )
         )

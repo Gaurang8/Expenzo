@@ -1,7 +1,7 @@
 import logging
 import re
 from django.conf import settings
-from langchain.chat_models import init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 logger = logging.getLogger(__name__)
@@ -12,12 +12,12 @@ class BaseAIProvider:
         raise NotImplementedError("Subclasses must implement suggest_category")
 
 
-class LangChainProvider(BaseAIProvider):
-    """Generalized provider for dynamically initializing models via LangChain."""
-    def __init__(self, model_name: str, model_provider: str, api_key: str | None, **kwargs):
+class GeminiProvider(BaseAIProvider):
+    """Specific provider for initializing Gemini models via LangChain."""
+    def __init__(self, model_name: str, api_key: str | None, **kwargs):
         self._initialized = False
         self.llm = None
-        self.provider_name = model_provider
+        self.provider_name = "google_genai"
         self.system_instruction = (
             "You are an expense categorization assistant. Your sole task is to map an expense title "
             "to one of the exact categories provided in the allowed list. Return ONLY the exact category "
@@ -26,35 +26,19 @@ class LangChainProvider(BaseAIProvider):
 
         if api_key:
             try:
-                if model_provider == "huggingface":
-                    from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
-                    # HuggingFace remote endpoints require explicit llm instantiation to avoid trying to load massive local PyTorch models
-                    endpoint = HuggingFaceEndpoint(
-                        repo_id=model_name,
-                        huggingfacehub_api_token=api_key,
-                        temperature=kwargs.get("temperature", 0.1),
-                        max_new_tokens=kwargs.get("max_new_tokens", 20),
-                        return_full_text=False,
-                        timeout=kwargs.get("timeout", 5)
-                    )
-                    self.llm = ChatHuggingFace(llm=endpoint)
-                else:
-                    # init_chat_model allows dynamically instantiating the right ChatModel
-                    # based on the model_provider string (e.g. 'google_genai', 'openai', 'anthropic')
-                    self.llm = init_chat_model(
-                        model_name,
-                        model_provider=model_provider,
-                        api_key=api_key,
-                        temperature=kwargs.get("temperature", 0.1),
-                        **kwargs
-                    )
+                self.llm = ChatGoogleGenerativeAI(
+                    model=model_name,
+                    google_api_key=api_key,
+                    temperature=kwargs.get("temperature", 0.1),
+                    **kwargs
+                )
                 self._initialized = True
             except Exception as e:
-                logger.error(f"Failed to initialize {model_provider} in LangChainProvider: {e}")
+                logger.error(f"Failed to initialize GeminiProvider: {e}")
 
     def suggest_category(self, title: str, categories: list[str]) -> str | None:
         if not self._initialized or not self.llm:
-            logger.warning(f"LangChainProvider({self.provider_name}) called but not properly initialized.")
+            logger.warning(f"GeminiProvider called but not properly initialized.")
             return None
 
         # Clean categories list
@@ -80,11 +64,65 @@ Which allowed category fits best? Return exactly one name from the list.
             for cat in category_options:
                 if cat.lower() == suggested.lower():
                     return cat
-            logger.warning(f"LangChainProvider({self.provider_name}) returned '{suggested}' which is not in the allowed list.")
+            logger.warning(f"GeminiProvider returned '{suggested}' which is not in the allowed list.")
             return None
         except Exception as e:
-            logger.error(f"LangChainProvider({self.provider_name}) generation error: {e}")
+            logger.error(f"GeminiProvider generation error: {e}")
             raise e  # Raise to trigger fallback chain
+
+import requests
+
+class HuggingFaceAPIProvider(BaseAIProvider):
+    """Lightweight HTTP API Provider to bypass transformers/OOM crashes on AWS."""
+    def __init__(self, model_name: str, api_key: str | None, **kwargs):
+        self.provider_name = "huggingface"
+        self.model_name = model_name
+        self.api_url = "https://router.huggingface.co/v1/chat/completions"
+        self.headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        self.api_key = api_key
+        self.system_instruction = (
+            "You are an expense categorization assistant. Your sole task is to map an expense title "
+            "to one of the exact categories provided in the allowed list. Return ONLY the exact category "
+            "name from the list, with no extra text, explanations, or punctuation."
+        )
+
+    def suggest_category(self, title: str, categories: list[str]) -> str | None:
+        if not self.api_key:
+            return None
+            
+        category_options = [c.strip() for c in categories if c.strip()]
+        if not category_options:
+            return None
+
+        prompt = f"Allowed Categories: {', '.join(category_options)}\nExpense Title: \"{title}\"\nWhich allowed category fits best? Return exactly one name from the list."
+        
+        payload = {
+            "model": self.model_name,
+            "messages": [
+                {"role": "system", "content": self.system_instruction},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 20,
+            "temperature": 0.1
+        }
+        
+        try:
+            response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if "choices" in data and len(data["choices"]) > 0:
+                suggested = data["choices"][0]["message"]["content"].strip()
+            else:
+                return None
+            
+            for cat in category_options:
+                if cat.lower() == suggested.lower():
+                    return cat
+            return None
+        except Exception as e:
+            logger.error(f"HuggingFaceAPIProvider error: {e}")
+            raise e
 
 
 class LocalRulesProvider(BaseAIProvider):

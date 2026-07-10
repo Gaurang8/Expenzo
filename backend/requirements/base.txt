@@ -12,10 +12,6 @@ requests
 django-redis
 celery
 google-generativeai
-huggingface-hub
-langchain
 langchain-google-genai
-langchain-huggingface
-transformers
 pgvector
 razorpay
