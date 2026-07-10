@@ -99,9 +99,7 @@ export function ExpenseFormDialog({
 
   useEffect(() => {
     if (!title || title.trim().length < 3) {
-      if (suggestedCategory !== null) {
-        setTimeout(() => setSuggestedCategory(null), 0)
-      }
+      setTimeout(() => setSuggestedCategory(null), 0)
       return
     }
 
@@ -126,7 +124,7 @@ export function ExpenseFormDialog({
     }, 600)
 
     return () => clearTimeout(delayDebounceFn)
-  }, [title, currentCategoryId, suggestedCategory])
+  }, [title, currentCategoryId])
 
   const { data: categoriesRes } = useCategories()
   const categories = useMemo(() => categoriesRes?.data || [], [categoriesRes?.data])
