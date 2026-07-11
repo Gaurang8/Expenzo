@@ -191,7 +191,7 @@ class DashboardWidgetSchema(BaseModel):
     type: str = Field(description="One of: 'bar', 'pie', 'donut', 'table', 'summary', 'list'.")
     column_span: int = Field(description="How many columns this widget should span in a 3-column grid (1, 2, or 3).")
     data: list[Dict[str, Any]] = Field(
-        description="The data payload. For charts: [{'name': 'Category', 'value': 100}]. For tables: [{'col1': 'val', 'col2': 'val'}]."
+        description="The data payload. For charts, values MUST be raw numbers: [{'name': 'Category', 'value': 100.50}]. For tables: [{'col1': 'val', 'col2': 'val'}]."
     )
     description: Optional[str] = Field(
         description="Markdown text to display for a summary widget or a subtitle for charts.",
@@ -490,10 +490,11 @@ def _analyze_dashboard(self, prompt: str, current_user_id: int) -> dict:
         "IMPORTANT: You should aim to provide a highly comprehensive dashboard with at least 4 to 6 widgets "
         "to give a complete financial picture, breaking down the data in multiple ways (e.g. by category, by time, by person, plus lists of top items). "
         "IMPORTANT: For any list of transactions or complex records (like 'Top 5 transactions'), ALWAYS use the 'table' widget type instead of 'list'. "
-        "CRITICAL INSTRUCTION: All currency amounts MUST be formatted with the Indian Rupee symbol (₹). YOU ARE STRICTLY FORBIDDEN FROM USING THE DOLLAR SIGN ($). "
+        "CRITICAL INSTRUCTION: For summary and table widgets, all currency amounts MUST be formatted with the Indian Rupee symbol (₹). YOU ARE STRICTLY FORBIDDEN FROM USING THE DOLLAR SIGN ($). "
         "Example summary: 'Your total spending is ₹69,720.00. The highest expense was ₹5000.' "
-        "For charts, provide data in an array of objects like {'name': 'Category', 'value': 100}. "
-        "For tables, provide an array of objects with proper keys like {'Date': '2023-01-01', 'Description': 'Dinner', 'Amount': '₹50'}. "
+        "CRITICAL INSTRUCTION: For chart widgets (bar, pie, donut), the 'value' field MUST be a pure number (integer or float). DO NOT include the ₹ symbol, commas, or string formatting in chart values. "
+        "For charts, provide data in an array of objects like {'name': 'Category', 'value': 100.50}. "
+        "For tables, provide an array of objects with proper keys like {'Date': '2023-01-01', 'Description': 'Dinner', 'Amount': '₹50.00'}. "
         f"\n\nHere is the user's recent expense data (last 150 transactions across all groups):\n{context_str}"
     )
 
