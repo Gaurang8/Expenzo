@@ -80,6 +80,12 @@ export function LoginForm() {
     navigate(ROUTES.HOME)
   }
 
+  const handleDemoLogin = () => {
+    form.setValue("email", "demo.user@gmail.com")
+    form.setValue("password", "Abc@1234")
+    form.handleSubmit(onSubmit)()
+  }
+
   const isPending = isLoginPending || isGooglePending
 
   return (
@@ -133,6 +139,17 @@ export function LoginForm() {
                 disabled={isPending}
               >
                 {isLoginPending ? "Logging in..." : "Login"}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-10 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                size="lg"
+                onClick={handleDemoLogin}
+                disabled={isPending}
+              >
+                Demo Login
               </Button>
 
               <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card my-2">
